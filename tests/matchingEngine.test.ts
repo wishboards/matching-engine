@@ -14,6 +14,7 @@ import {
   applyCrossRule,
   getCrossMatchedDesired,
   matchesAttribute,
+  matchesImplicitPreference,
   matchesGenderPreferenceImplicit,
   isCompatible,
 } from '../src/index.js';
@@ -272,12 +273,38 @@ describe('matchingEngine', () => {
     });
   });
 
+  describe('matchesImplicitPreference', () => {
+    it('returns true when desired values are empty', () => {
+      expect(matchesImplicitPreference({}, [], 'gender')).toBe(true);
+    });
+
+    it('returns true when no acceptance rules exist for target category', () => {
+      expect(matchesImplicitPreference({ diet: ['herbivore'] }, ['rabbit'], 'species')).toBe(true);
+    });
+
+    it('returns false when acceptance rules exist but searcher does not match acceptance trigger', () => {
+      const rules: Rule[] = [
+        {
+          id: 'ac_diet',
+          rule_type: 'acceptance',
+          trigger_attribute: 'diet',
+          trigger_value: 'herbivore',
+          target_attribute: 'species',
+          target_value: 'rabbit,deer',
+        },
+      ];
+      expect(matchesImplicitPreference({ diet: ['carnivore'] }, ['rabbit'], 'species', rules)).toBe(
+        false
+      );
+    });
+  });
+
   describe('matchesGenderPreferenceImplicit', () => {
     it('returns true when desired genders are empty', () => {
       expect(matchesGenderPreferenceImplicit({}, [])).toBe(true);
     });
 
-    it('returns false when searcher has no orientation', () => {
+    it('returns false when searcher has no matching orientation', () => {
       expect(matchesGenderPreferenceImplicit({ gender: ['man'] }, ['woman'])).toBe(false);
     });
   });
@@ -334,6 +361,37 @@ describe('matchingEngine', () => {
       };
 
       expect(isCompatible(wish, searcher, rules)).toBe(false);
+    });
+
+    it('evaluates custom domain categories (species, diet, alignment) without gender/orientation', () => {
+      const customRules: Rule[] = [
+        {
+          id: 'ac_custom',
+          rule_type: 'acceptance',
+          trigger_attribute: 'diet',
+          trigger_value: 'herbivore',
+          target_attribute: 'species',
+          target_value: 'rabbit,deer',
+        },
+        {
+          id: 'cr_custom',
+          rule_type: 'cross_match',
+          trigger_attribute: 'alignment',
+          target_attribute: 'alignment',
+          trigger_value: 'order',
+          target_value: 'chaos',
+        },
+      ];
+
+      const wish: Wish = {
+        creator_attributes: { diet: ['herbivore'], alignment: ['order'] },
+        desired_attributes: { alignment: ['chaos'] },
+      };
+      const searcher: UserProfile = {
+        identity_attributes: { species: ['deer'], alignment: ['chaos'], diet: ['herbivore'] },
+      };
+
+      expect(isCompatible(wish, searcher, customRules)).toBe(true);
     });
   });
 });
