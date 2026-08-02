@@ -1,6 +1,6 @@
 {
   "name": "@wishboards/matching-engine",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Zero-dependency, identity-based dynamic matchmaking and rules evaluation engine.",
   "main": "./dist/index.js",
