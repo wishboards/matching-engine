@@ -349,7 +349,7 @@ export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = 
   );
 
   // 2. Does the wish creator want the searcher?
-  let creatorWantsSearcherGender = false;
+  let creatorWantsSearcherGender: boolean;
   const desiredGenders = desiredParsed.gender || [];
   if (desiredGenders.length > 0) {
     creatorWantsSearcherGender = matchesAttribute(
