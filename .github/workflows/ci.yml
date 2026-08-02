@@ -71,6 +71,9 @@ jobs:
           echo "quality-checks result: $q_res"
           echo "unit-tests result: $u_res"
           for res in "$q_res" "$u_res"; do
+            if [ "$res" = "skipped" ]; then
+              continue
+            fi
             if [ "$res" = "failure" ] || [ "$res" = "cancelled" ]; then
               exit 1
             fi
