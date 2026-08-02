@@ -1,0 +1,20 @@
+# Normalize line endings. LF is canonical in the repo and on checkout for every
+# platform. This prevents CRLF churn.
+* text=auto eol=lf
+
+# Explicit rules
+*.sh text eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.gz binary
+*.zip binary

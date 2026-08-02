@@ -2,17 +2,46 @@ name: Node.js CI
 
 on:
   push:
-    branches: [main]
+    branches: ['main']
   pull_request:
-    branches: [main]
+    branches: ['main']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  quality-checks:
+    name: Code Quality & Formatting
+    if: ${{ !startsWith(github.head_ref, 'release-please-') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run type-check
+      - name: Format check
+        run: npm run format:check
+
+  unit-tests:
+    name: Unit Tests & Build
+    if: ${{ !startsWith(github.head_ref, 'release-please-') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
-
+        node-version: [20.x, 22.x, 24.x]
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js ${{ matrix.node-version }}
@@ -20,15 +49,29 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-
       - name: Install dependencies
-        run: npm ci
-
-      - name: Type check
-        run: npm run type-check
-
+        run: npm ci --ignore-scripts
+      - name: Build package
+        run: npm run build
       - name: Run tests
         run: npm test
 
-      - name: Build package
-        run: npm run build
+  ci-success:
+    name: CI Success
+    if: always()
+    needs: [quality-checks, unit-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify build result
+        run: |
+          q_res="${{ needs.quality-checks.result }}"
+          u_res="${{ needs.unit-tests.result }}"
+          echo "quality-checks result: $q_res"
+          echo "unit-tests result: $u_res"
+          for res in "$q_res" "$u_res"; do
+            if [ "$res" = "failure" ] || [ "$res" = "cancelled" ]; then
+              exit 1
+            fi
+          done
