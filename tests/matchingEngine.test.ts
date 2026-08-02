@@ -15,7 +15,6 @@ import {
   getCrossMatchedDesired,
   matchesAttribute,
   matchesImplicitPreference,
-  matchesGenderPreferenceImplicit,
   isCompatible,
 } from '../src/index.js';
 import { Rule, Wish, UserProfile } from '../src/types.js';
@@ -296,16 +295,6 @@ describe('matchingEngine', () => {
       expect(matchesImplicitPreference({ diet: ['carnivore'] }, ['rabbit'], 'species', rules)).toBe(
         false
       );
-    });
-  });
-
-  describe('matchesGenderPreferenceImplicit', () => {
-    it('returns true when desired genders are empty', () => {
-      expect(matchesGenderPreferenceImplicit({}, [])).toBe(true);
-    });
-
-    it('returns false when searcher has no matching orientation', () => {
-      expect(matchesGenderPreferenceImplicit({ gender: ['man'] }, ['woman'])).toBe(false);
     });
   });
 
