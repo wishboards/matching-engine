@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.0.2...matching-engine-v1.1.0) (2026-08-02)
+
+
+### Features
+
+* align repository & workflow standards with wishboard ([fdf80ea](https://github.com/wishboards/matching-engine/commit/fdf80ea2520662dc94f4a74ae01e922016c9fc2f))
+
 ## [1.0.2](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.0.1...matching-engine-v1.0.2) (2026-08-02)
 
 
