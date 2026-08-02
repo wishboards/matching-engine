@@ -292,11 +292,7 @@ export const matchesGenderPreferenceImplicit = (
   return matchesAttribute(Array.from(accepted), desiredGenders, 'gender', rules);
 };
 
-export const isCompatible = (
-  wish: Wish,
-  searcher: UserProfile,
-  rules: Rule[] = []
-): boolean => {
+export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = []): boolean => {
   const creatorProfileRaw =
     typeof wish.creator_attributes === 'string'
       ? parseJsonSafe(wish.creator_attributes)

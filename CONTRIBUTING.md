@@ -5,12 +5,14 @@ Thank you for your interest in contributing to `@wishboards/matching-engine`!
 ## Development & Setup
 
 1. **Clone the repository**:
+
    ```bash
    git clone https://github.com/wishboards/matching-engine.git
    cd matching-engine
    ```
 
 2. **Install dependencies**:
+
    ```bash
    npm install
    ```
