@@ -292,11 +292,15 @@ export const matchesGenderPreferenceImplicit = (
   return matchesAttribute(Array.from(accepted), desiredGenders, 'gender', rules);
 };
 
-export const isCompatible = (
-  wish: Wish,
-  searcher: UserProfile,
-  rules: Rule[] = []
-): boolean => {
+/**
+ * Evaluates bidirectional identity compatibility between a wish and a searcher profile.
+ *
+ * @param wish The wish object containing creator_attributes and desired_attributes.
+ * @param searcher The user profile searching or viewing wishes.
+ * @param rules Dynamic matching rules array (expansion, enrichment, acceptance, exclusion, cross_match).
+ * @returns True if creator and searcher are mutually compatible under the rule set.
+ */
+export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = []): boolean => {
   const creatorProfileRaw =
     typeof wish.creator_attributes === 'string'
       ? parseJsonSafe(wish.creator_attributes)

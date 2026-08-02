@@ -83,7 +83,13 @@ describe('matchingEngine', () => {
     ];
 
     it('returns true when rule has no context requirement', () => {
-      const rule: Rule = { rule_type: 'enrichment', trigger_attribute: 'gender', trigger_value: 'man', target_attribute: 'gender', target_value: 'man' };
+      const rule: Rule = {
+        rule_type: 'enrichment',
+        trigger_attribute: 'gender',
+        trigger_value: 'man',
+        target_attribute: 'gender',
+        target_value: 'man',
+      };
       expect(matchesContext(rule, {})).toBe(true);
     });
 

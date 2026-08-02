@@ -46,7 +46,7 @@ const rules: Rule[] = [
     trigger_attribute: 'orientation',
     trigger_value: 'lesbian',
     target_attribute: 'gender',
-    target_value: 'woman'
+    target_value: 'woman',
   },
   {
     id: 2,
@@ -54,18 +54,18 @@ const rules: Rule[] = [
     trigger_attribute: 'orientation',
     trigger_value: 'lesbian',
     target_attribute: 'gender',
-    target_value: 'woman'
-  }
+    target_value: 'woman',
+  },
 ];
 
 // 2. Define Wish creator and searcher profiles
 const wish: Wish = {
   creator_attributes: { gender: ['woman'], orientation: ['lesbian'] },
-  desired_attributes: { gender: ['woman'] }
+  desired_attributes: { gender: ['woman'] },
 };
 
 const searcher: UserProfile = {
-  identity_attributes: { gender: ['woman'], orientation: ['lesbian'] }
+  identity_attributes: { gender: ['woman'], orientation: ['lesbian'] },
 };
 
 // 3. Evaluate bidirectional compatibility
@@ -78,18 +78,23 @@ console.log('Is Compatible:', compatible); // true
 ## API Reference
 
 ### `isCompatible(wish, searcher, rules)`
+
 Evaluates whether a searcher profile and a wish creator profile are mutually compatible based on desired attributes and active rules.
 
 ### `enrichAttributes(attributes, targetCategory, rules)`
+
 Implicitly enriches a user's attribute array for a given category (e.g. adding `woman` if orientation is `lesbian`).
 
 ### `buildAcceptedSet(attributes, targetCategory, rules)`
+
 Builds a set of accepted target values based on `acceptance` rules (e.g., returning all genders for pan/queer orientations).
 
 ### `getExpandedDesired(attributes, category, rules)`
+
 Returns expanded desired attributes by applying synonym/variant `expansion` rules.
 
 ### `getExclusionConflicts(attributes, rules)`
+
 Identifies any mutually exclusive attribute conflicts (returns array of conflict objects with descriptive messages).
 
 ---
