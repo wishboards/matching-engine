@@ -28,7 +28,7 @@ jobs:
       contents: read
       id-token: write # Mandatory for OIDC Trusted Publishing & Provenance
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
