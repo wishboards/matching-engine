@@ -297,20 +297,6 @@ export const matchesImplicitPreference = (
 };
 
 /**
- * @deprecated Use matchesImplicitPreference instead. Preserved for backwards compatibility.
- */
-export const matchesGenderPreferenceImplicit = (
-  searcherAttributes: Record<string, string[]>,
-  desiredGenders: string[] = [],
-  rules: Rule[] = []
-): boolean => {
-  if (!desiredGenders || desiredGenders.length === 0) return true;
-  const searcherOrientations = searcherAttributes.orientation || [];
-  if (!searcherOrientations || searcherOrientations.length === 0) return false;
-  return matchesImplicitPreference(searcherAttributes, desiredGenders, 'gender', rules);
-};
-
-/**
  * Evaluates bidirectional identity compatibility between a wish and a searcher profile.
  *
  * @param wish The wish object containing creator_attributes and desired_attributes.
