@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.0.1...matching-engine-v1.0.2) (2026-08-02)
+
+
+### Bug Fixes
+
+* use npm 11.5.1+ for OIDC trusted publishing support ([0ca917d](https://github.com/wishboards/matching-engine/commit/0ca917d12c0815646afd9c6012261cb74978fcc5))
+
 ## [1.0.1](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.0.0...matching-engine-v1.0.1) (2026-08-02)
 
 
