@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.0...matching-engine-v1.1.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* generalize implicit attribute matching to be configuration-driven ([#18](https://github.com/wishboards/matching-engine/issues/18)) ([373058e](https://github.com/wishboards/matching-engine/commit/373058e29d73768f3b20ca9a0520b1c58807fb1a))
+
 ## [1.1.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.0.2...matching-engine-v1.1.0) (2026-08-02)
 
 
