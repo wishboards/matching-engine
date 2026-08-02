@@ -277,6 +277,28 @@ export const matchesAttribute = (
   return Array.from(allAcceptable).some((desired) => normalizedSearcher.has(desired));
 };
 
+export const matchesImplicitPreference = (
+  searcherAttributes: Record<string, string[]>,
+  desiredValues: string[] = [],
+  targetCategory: string,
+  rules: Rule[] = []
+): boolean => {
+  if (!desiredValues || desiredValues.length === 0) return true;
+
+  const acceptanceRules = rules.filter(
+    (r) => r.rule_type === 'acceptance' && r.target_attribute === targetCategory
+  );
+  if (acceptanceRules.length === 0) return true;
+
+  const accepted = buildAcceptedSet(searcherAttributes, targetCategory, rules);
+  if (accepted.size === 0) return false;
+
+  return matchesAttribute(Array.from(accepted), desiredValues, targetCategory, rules);
+};
+
+/**
+ * @deprecated Use matchesImplicitPreference instead. Preserved for backwards compatibility.
+ */
 export const matchesGenderPreferenceImplicit = (
   searcherAttributes: Record<string, string[]>,
   desiredGenders: string[] = [],
@@ -285,11 +307,7 @@ export const matchesGenderPreferenceImplicit = (
   if (!desiredGenders || desiredGenders.length === 0) return true;
   const searcherOrientations = searcherAttributes.orientation || [];
   if (!searcherOrientations || searcherOrientations.length === 0) return false;
-
-  const accepted = buildAcceptedSet(searcherAttributes, 'gender', rules);
-  if (accepted.size === 0) return false;
-
-  return matchesAttribute(Array.from(accepted), desiredGenders, 'gender', rules);
+  return matchesImplicitPreference(searcherAttributes, desiredGenders, 'gender', rules);
 };
 
 /**
@@ -341,40 +359,33 @@ export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = 
     searcherProfile[key] = enrichAttributes(searcherParsed, key, rules);
   }
 
-  // 1. Does the searcher want the wish creator?
-  const searcherWantsCreatorGender = matchesGenderPreferenceImplicit(
-    searcherProfile,
-    creatorProfile.gender,
-    rules
-  );
+  const allCategories = new Set<string>([
+    ...Object.keys(creatorProfile),
+    ...Object.keys(desiredParsed),
+    ...Object.keys(searcherProfile),
+    ...rules.map((r) => r.target_attribute).filter(Boolean),
+  ]);
 
-  // 2. Does the wish creator want the searcher?
-  let creatorWantsSearcherGender: boolean;
-  const desiredGenders = desiredParsed.gender || [];
-  if (desiredGenders.length > 0) {
-    creatorWantsSearcherGender = matchesAttribute(
-      searcherProfile.gender || [],
-      desiredGenders,
-      'gender',
-      rules,
-      searcherProfile
-    );
-  } else {
-    creatorWantsSearcherGender = matchesGenderPreferenceImplicit(
-      creatorProfile,
-      searcherProfile.gender || [],
-      rules
-    );
-  }
+  for (const cat of allCategories) {
+    // 1. Does searcher accept creator's attributes for category `cat`?
+    const creatorVals = creatorProfile[cat] || [];
+    if (!matchesImplicitPreference(searcherProfile, creatorVals, cat, rules)) {
+      return false;
+    }
 
-  let creatorWantsSearcherAttributes = true;
-  for (const [cat, desiredVals] of Object.entries(desiredParsed)) {
-    if (cat === 'gender') continue;
-    if (!matchesAttribute(searcherProfile[cat] || [], desiredVals, cat, rules, searcherProfile)) {
-      creatorWantsSearcherAttributes = false;
-      break;
+    // 2. Does creator accept searcher's attributes for category `cat`?
+    const desiredVals = desiredParsed[cat] || [];
+    if (desiredVals.length > 0) {
+      if (!matchesAttribute(searcherProfile[cat] || [], desiredVals, cat, rules, searcherProfile)) {
+        return false;
+      }
+    } else {
+      const searcherVals = searcherProfile[cat] || [];
+      if (!matchesImplicitPreference(creatorProfile, searcherVals, cat, rules)) {
+        return false;
+      }
     }
   }
 
-  return searcherWantsCreatorGender && creatorWantsSearcherGender && creatorWantsSearcherAttributes;
+  return true;
 };
