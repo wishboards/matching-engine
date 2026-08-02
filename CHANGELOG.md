@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.0...matching-engine-v1.1.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* add RELEASE_PLEASE_PAT token to release-please action ([#20](https://github.com/wishboards/matching-engine/issues/20)) ([323f0df](https://github.com/wishboards/matching-engine/commit/323f0df4873a637dfafa3e7a87b50ae1ca442e7a))
+* generalize implicit attribute matching to be configuration-driven ([#18](https://github.com/wishboards/matching-engine/issues/18)) ([373058e](https://github.com/wishboards/matching-engine/commit/373058e29d73768f3b20ca9a0520b1c58807fb1a))
+
 ## [1.1.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.0.2...matching-engine-v1.1.0) (2026-08-02)
 
 
