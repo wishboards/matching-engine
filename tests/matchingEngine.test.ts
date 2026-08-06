@@ -68,6 +68,26 @@ describe('matchingEngine', () => {
     it('returns empty object for empty input', () => {
       expect(parseAttributesInput(null)).toEqual({});
     });
+
+    it('ignores prototype pollution keys (__proto__, constructor, prototype)', () => {
+      const maliciousJson =
+        '{"__proto__": {"polluted": "yes"}, "constructor": {"prototype": {"polluted2": "yes"}}, "prototype": {"polluted3": "yes"}, "safe": "value"}';
+      const parsed = parseAttributesInput(maliciousJson) as Record<string, unknown>;
+
+      expect(parsed.safe).toEqual(['value']);
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      expect(parsed.__proto__?.polluted).toBeUndefined();
+
+      expect(Object.prototype.hasOwnProperty.call(parsed, '__proto__')).toBe(false);
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'constructor')).toBe(false);
+      expect(Object.prototype.hasOwnProperty.call(parsed, 'prototype')).toBe(false);
+
+      const emptyObj = {} as Record<string, unknown>;
+      expect(emptyObj.polluted).toBeUndefined();
+      expect(emptyObj.polluted2).toBeUndefined();
+      expect(emptyObj.polluted3).toBeUndefined();
+    });
   });
 
   describe('matchesContext', () => {
