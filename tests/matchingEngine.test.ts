@@ -4,6 +4,7 @@ import {
   escapeRegExp,
   hasToken,
   parseJsonSafe,
+  normalizeArrayInput,
   parseAttributesInput,
   matchesContext,
   getExpandedDesired,
@@ -38,6 +39,42 @@ describe('matchingEngine', () => {
     it('matches whole word tokens', () => {
       expect(hasToken('gay man', 'man')).toBe(true);
       expect(hasToken('human', 'man')).toBe(false);
+    });
+  });
+
+  describe('normalizeArrayInput', () => {
+    it('returns empty array for falsy values', () => {
+      expect(normalizeArrayInput(null)).toEqual([]);
+      expect(normalizeArrayInput(undefined)).toEqual([]);
+      expect(normalizeArrayInput('')).toEqual([]);
+    });
+
+    it('returns array for single string input', () => {
+      expect(normalizeArrayInput('man')).toEqual(['man']);
+    });
+
+    it('splits comma-separated strings', () => {
+      expect(normalizeArrayInput('man,woman')).toEqual(['man', 'woman']);
+    });
+
+    it('trims whitespace and removes empty items', () => {
+      expect(normalizeArrayInput(' man , , woman ')).toEqual(['man', 'woman']);
+    });
+
+    it('handles arrays of strings', () => {
+      expect(normalizeArrayInput(['man', 'woman'])).toEqual(['man', 'woman']);
+    });
+
+    it('handles arrays containing comma-separated strings', () => {
+      expect(normalizeArrayInput(['man,woman', 'non-binary'])).toEqual([
+        'man',
+        'woman',
+        'non-binary',
+      ]);
+    });
+
+    it('filters out falsy values in arrays', () => {
+      expect(normalizeArrayInput(['man', '', null, 'woman'])).toEqual(['man', 'null', 'woman']);
     });
   });
 
