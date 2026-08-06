@@ -79,21 +79,14 @@ export const getExpandedDesired = (
       r.target_attribute === category
   );
 
-  const parsedTargets = expandRules.map((rule) =>
-    rule.target_value.split(',').map((t) => t.trim().toLowerCase())
-  );
-
   for (const val of desiredVals) {
-    for (let i = 0; i < expandRules.length; i++) {
-      const rule = expandRules[i];
+    for (const rule of expandRules) {
       if (hasToken(val, rule.trigger_value)) {
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = parsedTargets[i];
-        for (let j = 0; j < targets.length; j++) {
-          result.add(targets[j]);
-        }
+        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        targets.forEach((t) => result.add(t));
       }
     }
   }
