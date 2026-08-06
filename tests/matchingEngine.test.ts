@@ -260,6 +260,36 @@ describe('matchingEngine', () => {
       applyCrossRule('bottom', rule, undefined, [], result2);
       expect(Array.from(result2)).toContain('top');
     });
+
+    it('evaluates contextProfile if provided and skips if context does not match', () => {
+      const rule: Rule = {
+        rule_type: 'cross_match',
+        trigger_attribute: 'role',
+        target_attribute: 'role',
+        trigger_value: 'top',
+        target_value: 'bottom',
+        context_attribute: 'orientation',
+        context_value: 'gay',
+      };
+      const result = new Set<string>();
+      applyCrossRule('top', rule, { orientation: ['straight'] }, [], result);
+      expect(Array.from(result)).toHaveLength(0);
+    });
+
+    it('evaluates contextProfile if provided and applies if context matches', () => {
+      const rule: Rule = {
+        rule_type: 'cross_match',
+        trigger_attribute: 'role',
+        target_attribute: 'role',
+        trigger_value: 'top',
+        target_value: 'bottom',
+        context_attribute: 'orientation',
+        context_value: 'gay',
+      };
+      const result = new Set<string>();
+      applyCrossRule('top', rule, { orientation: ['gay'] }, [], result);
+      expect(Array.from(result)).toContain('bottom');
+    });
   });
 
   describe('matchesAttribute', () => {
