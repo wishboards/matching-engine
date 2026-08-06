@@ -370,22 +370,52 @@ export const matchesAttribute = (
   if (!searcherVals || searcherVals.length === 0) return false;
 
   const normalizedSearcher = new Set(searcherVals.map(normalizeToken));
-  const expandedDesired = getExpandedDesired(desiredVals, category, rules, contextProfile);
-  const crossMatchedDesired = getCrossMatchedDesired(desiredVals, category, rules, contextProfile);
-  const expandedCrossMatched = getExpandedDesired(
-    Array.from(crossMatchedDesired),
-    category,
-    rules,
-    contextProfile
-  );
 
-  const allAcceptable = new Set([
-    ...expandedDesired,
-    ...crossMatchedDesired,
-    ...expandedCrossMatched,
-  ]);
+  const expandRules: Rule[] = [];
+  const crossRules: Rule[] = [];
+  for (const r of rules) {
+    if (r.trigger_attribute === category && r.target_attribute === category) {
+      if (r.rule_type === 'expansion') expandRules.push(r);
+      else if (r.rule_type === 'cross_match') crossRules.push(r);
+    }
+  }
 
-  return Array.from(allAcceptable).some((desired) => normalizedSearcher.has(desired));
+  const allAcceptable = new Set(desiredVals.map(normalizeToken));
+  const crossMatchedDesired = new Set<string>();
+
+  for (const val of desiredVals) {
+    for (const rule of expandRules) {
+      if (hasToken(val, rule.trigger_value)) {
+        if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
+          continue;
+        }
+        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        targets.forEach((t) => allAcceptable.add(t));
+      }
+    }
+
+    for (const rule of crossRules) {
+      applyCrossRule(val, rule, contextProfile, rules, crossMatchedDesired);
+    }
+  }
+
+  for (const val of crossMatchedDesired) {
+    allAcceptable.add(val);
+    for (const rule of expandRules) {
+      if (hasToken(val, rule.trigger_value)) {
+        if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
+          continue;
+        }
+        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        targets.forEach((t) => allAcceptable.add(t));
+      }
+    }
+  }
+
+  for (const desired of allAcceptable) {
+    if (normalizedSearcher.has(desired)) return true;
+  }
+  return false;
 };
 
 export const matchesImplicitPreference = (

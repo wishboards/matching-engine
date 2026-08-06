@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## 2024-08-06 - Rule Index Caching Optimization
 
 **Learning:** O(N^2) bottlenecks in repeated evaluation over static lists can be efficiently resolved without altering public signatures by using `WeakMap` to cache an index on the array object reference itself. Furthermore, short-circuiting logical ANDs (like `triggerMatch && contextMatch`) before evaluating expensive inner branches yields disproportionately massive performance boosts.
@@ -17,3 +18,8 @@
 
 **Learning:** Replacing `.flatMap().map().filter()` with a native `for...of` loop provides a ~50% performance increase in `normalizeArrayInput`. However, to pass SonarCloud's strict checks on coercing `unknown` types to string, it's necessary to explicitly type-narrow/cast the values (e.g., checking if it's a string, number, or boolean before calling `String()`).
 **Action:** When converting chained array operations to native loops in this codebase, ensure `unknown` types are properly narrowed before string coercion to satisfy the CI quality gate, maintaining both performance and code health.
+## 2024-08-06 - Optimized Rule Evaluation
+
+**Learning:** When writing performance enhancements, repeated $O(N)$ operations against large arrays (like an entire rule set) compound when functions chain together.
+
+**Action:** Filtering an array once and evaluating rules directly avoids redundant loops when calling multiple independent helpers (`getExpandedDesired`, `getCrossMatchedDesired`).
