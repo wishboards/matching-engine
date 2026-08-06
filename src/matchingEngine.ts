@@ -6,7 +6,7 @@ export const normalizeToken = (value: unknown): string =>
     .toLowerCase();
 
 export const escapeRegExp = (string: string): string => {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
 export const hasToken = (str: unknown, token: string): boolean => {
