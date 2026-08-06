@@ -119,6 +119,34 @@ describe('matchingEngine', () => {
       const contextProfile = { orientation: ['homosexual'] };
       expect(matchesContext(rule, contextProfile, rules)).toBe(true);
     });
+
+    it('returns false when context profile does not have the context attribute', () => {
+      const rule: Rule = {
+        rule_type: 'enrichment',
+        trigger_attribute: 'orientation',
+        trigger_value: 'gay',
+        target_attribute: 'gender',
+        target_value: 'man',
+        context_attribute: 'orientation',
+        context_value: 'gay',
+      };
+      const contextProfile = { gender: ['man'] };
+      expect(matchesContext(rule, contextProfile)).toBe(false);
+    });
+
+    it('returns false when context profile has the context attribute but no values match', () => {
+      const rule: Rule = {
+        rule_type: 'enrichment',
+        trigger_attribute: 'orientation',
+        trigger_value: 'gay',
+        target_attribute: 'gender',
+        target_value: 'man',
+        context_attribute: 'orientation',
+        context_value: 'gay',
+      };
+      const contextProfile = { orientation: ['straight'] };
+      expect(matchesContext(rule, contextProfile)).toBe(false);
+    });
   });
 
   describe('getExpandedDesired', () => {
