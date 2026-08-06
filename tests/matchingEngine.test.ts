@@ -151,6 +151,16 @@ describe('matchingEngine', () => {
         target_attribute: 'role',
         target_value: 'bottom',
       },
+      {
+        id: 'ex2',
+        rule_type: 'exclusion',
+        trigger_attribute: 'toy',
+        trigger_value: 'rope',
+        target_attribute: 'toy',
+        target_value: 'knife',
+        context_attribute: 'play_style',
+        context_value: 'soft',
+      },
     ];
 
     it('detects mutually exclusive attribute combinations', () => {
@@ -162,6 +172,25 @@ describe('matchingEngine', () => {
 
     it('returns empty array when no conflicts exist', () => {
       const attributes = { role: ['top', 'switch'] };
+      const conflicts = getExclusionConflicts(attributes, rules);
+      expect(conflicts).toEqual([]);
+    });
+
+    it('detects conflicts when context condition is met', () => {
+      const attributes = { toy: ['rope', 'knife'], play_style: ['soft'] };
+      const conflicts = getExclusionConflicts(attributes, rules);
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0].rule_id).toBe('ex2');
+    });
+
+    it('returns empty array when context condition is not met', () => {
+      const attributes = { toy: ['rope', 'knife'], play_style: ['hard'] };
+      const conflicts = getExclusionConflicts(attributes, rules);
+      expect(conflicts).toEqual([]);
+    });
+
+    it('returns empty array when context attribute is missing entirely', () => {
+      const attributes = { toy: ['rope', 'knife'] };
       const conflicts = getExclusionConflicts(attributes, rules);
       expect(conflicts).toEqual([]);
     });
