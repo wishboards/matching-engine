@@ -9,9 +9,27 @@ export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 };
 
+// ⚡ Bolt Optimization: Cache compiled regular expressions to avoid heavy
+// recompilation penalties in hot loops. Bound the cache size to prevent memory leaks.
+const MAX_CACHE_SIZE = 1000;
+const tokenRegExpCache = new Map<string, RegExp>();
+
 export const hasToken = (str: unknown, token: string): boolean => {
+  if (!token) return false;
   const escapedToken = escapeRegExp(token);
-  return new RegExp(String.raw`\b${escapedToken}\b`, 'i').test(normalizeToken(str));
+
+  let regex = tokenRegExpCache.get(escapedToken);
+  if (!regex) {
+    // Evict old cache entries to prevent unbounded memory growth on dynamic input
+    if (tokenRegExpCache.size >= MAX_CACHE_SIZE) {
+      tokenRegExpCache.clear();
+    }
+
+    regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
+    tokenRegExpCache.set(escapedToken, regex);
+  }
+
+  return regex.test(normalizeToken(str));
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
