@@ -1,4 +1,9 @@
-import { matchesAttribute, normalizeToken, getExpandedDesired, getCrossMatchedDesired } from '../src/matchingEngine.js';
+import {
+  matchesAttribute,
+  normalizeToken,
+  getExpandedDesired,
+  getCrossMatchedDesired,
+} from '../src/matchingEngine.js';
 import { Rule } from '../src/types.js';
 
 const generateRules = (count: number): Rule[] => {
