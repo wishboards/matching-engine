@@ -9,9 +9,17 @@ export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 };
 
+// Cache to avoid recompiling Regular Expressions in loop contexts, drastically improving performance.
+const tokenRegExpCache = new Map<string, RegExp>();
+
 export const hasToken = (str: unknown, token: string): boolean => {
-  const escapedToken = escapeRegExp(token);
-  return new RegExp(String.raw`\b${escapedToken}\b`, 'i').test(normalizeToken(str));
+  let regex = tokenRegExpCache.get(token);
+  if (!regex) {
+    const escapedToken = escapeRegExp(token);
+    regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
+    tokenRegExpCache.set(token, regex);
+  }
+  return regex.test(normalizeToken(str));
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
