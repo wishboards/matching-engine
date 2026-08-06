@@ -1,5 +1,55 @@
 import { Rule, UserProfile, Wish, Conflict } from './types.js';
 
+export interface RuleIndex {
+  expansion: Map<string, Rule[]>;
+  enrichment: Map<string, Rule[]>;
+  acceptance: Map<string, Rule[]>;
+  exclusion: Rule[];
+  cross_match: Map<string, Rule[]>;
+}
+
+const ruleIndexCache = new WeakMap<Rule[], RuleIndex>();
+
+export const getRuleIndex = (rules: Rule[]): RuleIndex => {
+  let index = ruleIndexCache.get(rules);
+  if (!index) {
+    index = {
+      expansion: new Map(),
+      enrichment: new Map(),
+      acceptance: new Map(),
+      exclusion: [],
+      cross_match: new Map(),
+    };
+    for (const r of rules) {
+      if (r.rule_type === 'exclusion') {
+        index.exclusion.push(r);
+      } else if (r.rule_type === 'enrichment') {
+        if (!index.enrichment.has(r.target_attribute)) {
+          index.enrichment.set(r.target_attribute, []);
+        }
+        index.enrichment.get(r.target_attribute)!.push(r);
+      } else if (r.rule_type === 'acceptance') {
+        if (!index.acceptance.has(r.target_attribute)) {
+          index.acceptance.set(r.target_attribute, []);
+        }
+        index.acceptance.get(r.target_attribute)!.push(r);
+      } else if (r.rule_type === 'expansion' && r.trigger_attribute === r.target_attribute) {
+        if (!index.expansion.has(r.trigger_attribute)) {
+          index.expansion.set(r.trigger_attribute, []);
+        }
+        index.expansion.get(r.trigger_attribute)!.push(r);
+      } else if (r.rule_type === 'cross_match' && r.trigger_attribute === r.target_attribute) {
+        if (!index.cross_match.has(r.trigger_attribute)) {
+          index.cross_match.set(r.trigger_attribute, []);
+        }
+        index.cross_match.get(r.trigger_attribute)!.push(r);
+      }
+    }
+    ruleIndexCache.set(rules, index);
+  }
+  return index;
+};
+
 export const normalizeToken = (value: unknown): string =>
   String(value || '')
     .trim()
@@ -72,12 +122,7 @@ export const getExpandedDesired = (
   contextProfile: Record<string, string[]> | undefined = undefined
 ): string[] => {
   const result = new Set(desiredVals.map(normalizeToken));
-  const expandRules = rules.filter(
-    (r) =>
-      r.rule_type === 'expansion' &&
-      r.trigger_attribute === category &&
-      r.target_attribute === category
-  );
+  const expandRules = getRuleIndex(rules).expansion.get(category) || [];
 
   for (const val of desiredVals) {
     for (const rule of expandRules) {
@@ -104,7 +149,7 @@ export const getExclusionConflicts = (
     expandedAttrs[key] = getExpandedDesired(vals, key, rules, attributes);
   }
 
-  const exclusionRules = rules.filter((r) => r.rule_type === 'exclusion');
+  const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
     const triggerTokens = rule.trigger_value
@@ -160,6 +205,7 @@ export const evaluateRuleConditions = (
 ): boolean => {
   const triggerVals = userAttributes[rule.trigger_attribute] || [];
   const triggerMatch = triggerVals.some((v) => hasToken(v, rule.trigger_value));
+  if (!triggerMatch) return false;
 
   let contextMatch = true;
   if (rule.context_attribute && rule.context_value) {
@@ -178,9 +224,7 @@ export const enrichAttributes = (
   rules: Rule[] = []
 ): string[] => {
   const enriched = new Set((userAttributes[targetCategory] || []).map(normalizeToken));
-  const enrichmentRules = rules.filter(
-    (r) => r.rule_type === 'enrichment' && r.target_attribute === targetCategory
-  );
+  const enrichmentRules = getRuleIndex(rules).enrichment.get(targetCategory) || [];
 
   for (const rule of enrichmentRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
@@ -196,9 +240,7 @@ export const buildAcceptedSet = (
   rules: Rule[] = []
 ): Set<string> => {
   const accepted = new Set<string>();
-  const acceptanceRules = rules.filter(
-    (r) => r.rule_type === 'acceptance' && r.target_attribute === targetCategory
-  );
+  const acceptanceRules = getRuleIndex(rules).acceptance.get(targetCategory) || [];
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
@@ -233,12 +275,7 @@ export const getCrossMatchedDesired = (
   contextProfile: Record<string, string[]> | undefined = undefined
 ): string[] => {
   const result = new Set<string>();
-  const crossRules = rules.filter(
-    (r) =>
-      r.rule_type === 'cross_match' &&
-      r.trigger_attribute === category &&
-      r.target_attribute === category
-  );
+  const crossRules = getRuleIndex(rules).cross_match.get(category) || [];
 
   for (const val of desiredVals) {
     for (const rule of crossRules) {
@@ -285,9 +322,7 @@ export const matchesImplicitPreference = (
 ): boolean => {
   if (!desiredValues || desiredValues.length === 0) return true;
 
-  const acceptanceRules = rules.filter(
-    (r) => r.rule_type === 'acceptance' && r.target_attribute === targetCategory
-  );
+  const acceptanceRules = getRuleIndex(rules).acceptance.get(targetCategory) || [];
   if (acceptanceRules.length === 0) return true;
 
   const accepted = buildAcceptedSet(searcherAttributes, targetCategory, rules);
