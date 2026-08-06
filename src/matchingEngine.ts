@@ -193,12 +193,13 @@ export const enrichAttributes = (
 export const buildAcceptedSet = (
   userAttributes: Record<string, string[]>,
   targetCategory: string,
-  rules: Rule[] = []
+  rules: Rule[] = [],
+  preFilteredRules?: Rule[]
 ): Set<string> => {
   const accepted = new Set<string>();
-  const acceptanceRules = rules.filter(
-    (r) => r.rule_type === 'acceptance' && r.target_attribute === targetCategory
-  );
+  const acceptanceRules =
+    preFilteredRules ||
+    rules.filter((r) => r.rule_type === 'acceptance' && r.target_attribute === targetCategory);
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
@@ -290,7 +291,7 @@ export const matchesImplicitPreference = (
   );
   if (acceptanceRules.length === 0) return true;
 
-  const accepted = buildAcceptedSet(searcherAttributes, targetCategory, rules);
+  const accepted = buildAcceptedSet(searcherAttributes, targetCategory, rules, acceptanceRules);
   if (accepted.size === 0) return false;
 
   return matchesAttribute(Array.from(accepted), desiredValues, targetCategory, rules);
