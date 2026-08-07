@@ -59,9 +59,22 @@ export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 };
 
+// Cache compiled RegExp to prevent recompilation in high-frequency loops
+const tokenRegExpCache = new Map<string, RegExp>();
+const MAX_CACHE_SIZE = 10000;
+
 export const hasToken = (str: unknown, token: string): boolean => {
-  const escapedToken = escapeRegExp(token);
-  return new RegExp(String.raw`\b${escapedToken}\b`, 'i').test(normalizeToken(str));
+  let regex = tokenRegExpCache.get(token);
+  if (!regex) {
+    if (tokenRegExpCache.size >= MAX_CACHE_SIZE) {
+      // Prevent unbounded memory growth by clearing cache when it gets too large
+      tokenRegExpCache.clear();
+    }
+    const escapedToken = escapeRegExp(token);
+    regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
+    tokenRegExpCache.set(token, regex);
+  }
+  return regex.test(normalizeToken(str));
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
