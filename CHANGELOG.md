@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.1...matching-engine-v1.1.2) (2026-08-07)
+
+
+### Performance Improvements
+
+* **matchingEngine:** cache compiled RegExp in hasToken ([#38](https://github.com/wishboards/matching-engine/issues/38)) ([184b22b](https://github.com/wishboards/matching-engine/commit/184b22b9896dd43943fc376c297e6cb23b88feba))
+* optimize rule condition evaluation to O(1) filtering ([#36](https://github.com/wishboards/matching-engine/issues/36)) ([e7bd67f](https://github.com/wishboards/matching-engine/commit/e7bd67f38f03d1cd6efb4dc8b597935e8007c9e8))
+
 ## [1.1.1](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.0...matching-engine-v1.1.1) (2026-08-02)
 
 
