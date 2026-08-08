@@ -7,3 +7,8 @@
 
 **Learning:** Recompiling Regular Expressions using `new RegExp()` inside a highly iterative function like `hasToken` adds severe CPU and memory pressure, creating an O(N) complexity issue out of a function assumed to be O(1).
 **Action:** When working on matching or rules engines that heavily rely on repeated regex generation based on variables, always use a `Map` cache (capped to a maximum size to avoid leaks) to reuse the compiled `RegExp` instances.
+
+## 2024-08-08 - Redundant Array Maps in Hot Paths
+
+**Learning:** Mapping over an array to extract properties and filtering (e.g., `rules.map((r) => r.target_attribute).filter(Boolean)`) inside a hot loop (`isCompatible`) creates unnecessary allocations and O(N) overhead. When the input array is already cached using a `WeakMap`, these derived data structures should also be pre-computed and stored in the cache.
+**Action:** Always inspect hot paths for `Array.prototype.map` or `Array.prototype.filter` operations on inputs that are otherwise cached. Move derived calculations to the caching layer to turn O(N) per-call operations into O(1) lookups.
