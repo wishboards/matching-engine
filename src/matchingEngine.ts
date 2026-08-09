@@ -50,10 +50,13 @@ export const getRuleIndex = (rules: Rule[]): RuleIndex => {
   return index;
 };
 
-export const normalizeToken = (value: unknown): string =>
-  String(value || '')
-    .trim()
-    .toLowerCase();
+export const normalizeToken = (value: unknown): string => {
+  return typeof value === 'string'
+    ? value.trim().toLowerCase()
+    : String(value || '')
+        .trim()
+        .toLowerCase();
+};
 
 export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -64,17 +67,31 @@ const tokenRegExpCache = new Map<string, RegExp>();
 const MAX_CACHE_SIZE = 10000;
 
 export const hasToken = (str: unknown, token: string): boolean => {
-  let regex = tokenRegExpCache.get(token);
+  const normStr =
+    typeof str === 'string'
+      ? str.trim().toLowerCase()
+      : String(str || '')
+          .trim()
+          .toLowerCase();
+  const lowerToken = token.toLowerCase();
+
+  // Fast path for exact match
+  if (normStr === lowerToken) return true;
+
+  // Fast path for non-inclusion
+  if (normStr.indexOf(lowerToken) === -1) return false;
+
+  let regex = tokenRegExpCache.get(lowerToken);
   if (!regex) {
     if (tokenRegExpCache.size >= MAX_CACHE_SIZE) {
       // Prevent unbounded memory growth by clearing cache when it gets too large
       tokenRegExpCache.clear();
     }
-    const escapedToken = escapeRegExp(token);
+    const escapedToken = escapeRegExp(lowerToken);
     regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
-    tokenRegExpCache.set(token, regex);
+    tokenRegExpCache.set(lowerToken, regex);
   }
-  return regex.test(normalizeToken(str));
+  return regex.test(normStr);
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
@@ -88,14 +105,26 @@ export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
 };
 
 export const normalizeArrayInput = (value: unknown): string[] => {
-  if (!value) {
-    return [];
-  }
+  if (!value) return [];
   const array = Array.isArray(value) ? value : [value];
-  return array
-    .flatMap((item) => String(item).split(','))
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const result: string[] = [];
+  for (let i = 0; i < array.length; i++) {
+    const item = array[i];
+    if (item == null) continue;
+    const str = typeof item === 'string' ? item : String(item);
+
+    if (str.indexOf(',') !== -1) {
+      const parts = str.split(',');
+      for (let j = 0; j < parts.length; j++) {
+        const trimmed = parts[j].trim();
+        if (trimmed) result.push(trimmed);
+      }
+    } else {
+      const trimmed = str.trim();
+      if (trimmed) result.push(trimmed);
+    }
+  }
+  return result;
 };
 
 export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]> => {
