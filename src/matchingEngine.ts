@@ -25,7 +25,8 @@ export const hasToken = (str: unknown, token: string): boolean => {
   }
   // Use String instead of normalizeToken to avoid redundant trim/toLowerCase allocations,
   // as the RegExp is already case-insensitive ('i') and uses word boundaries (\b).
-  return regex.test(String(str ?? ''));
+  const text = typeof str === 'string' ? str : String(str ?? '');
+  return regex.test(text);
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
