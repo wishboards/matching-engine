@@ -9,9 +9,23 @@ export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 };
 
+const MAX_CACHE_SIZE = 1000;
+const tokenRegExpCache = new Map<string, RegExp>();
+
 export const hasToken = (str: unknown, token: string): boolean => {
-  const escapedToken = escapeRegExp(token);
-  return new RegExp(String.raw`\b${escapedToken}\b`, 'i').test(normalizeToken(str));
+  let regex = tokenRegExpCache.get(token);
+  if (!regex) {
+    if (tokenRegExpCache.size >= MAX_CACHE_SIZE) {
+      // Prevent unbounded memory growth by clearing cache when it gets too large
+      tokenRegExpCache.clear();
+    }
+    const escapedToken = escapeRegExp(token);
+    regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
+    tokenRegExpCache.set(token, regex);
+  }
+  // Use String instead of normalizeToken to avoid redundant trim/toLowerCase allocations,
+  // as the RegExp is already case-insensitive ('i') and uses word boundaries (\b).
+  return regex.test(String(str ?? ''));
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
