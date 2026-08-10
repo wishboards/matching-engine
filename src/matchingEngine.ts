@@ -23,10 +23,7 @@ export const hasToken = (str: unknown, token: string): boolean => {
     regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
     tokenRegExpCache.set(token, regex);
   }
-  // Use String instead of normalizeToken to avoid redundant trim/toLowerCase allocations,
-  // as the RegExp is already case-insensitive ('i') and uses word boundaries (\b).
-  const text = typeof str === 'string' ? str : String(str ?? '');
-  return regex.test(text);
+  return regex.test(normalizeToken(str));
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
@@ -40,14 +37,27 @@ export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
 };
 
 export const normalizeArrayInput = (value: unknown): string[] => {
-  if (!value) {
-    return [];
-  }
+  if (!value) return [];
+
   const array = Array.isArray(value) ? value : [value];
-  return array
-    .flatMap((item) => String(item).split(','))
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const result: string[] = [];
+
+  // Use a simple loop to avoid multiple intermediate array allocations from flatMap, map, and filter
+  for (let i = 0; i < array.length; i++) {
+    const item = String(array[i]);
+    if (item.includes(',')) {
+      const parts = item.split(',');
+      for (let j = 0; j < parts.length; j++) {
+        const trimmed = parts[j].trim();
+        if (trimmed) result.push(trimmed);
+      }
+    } else {
+      const trimmed = item.trim();
+      if (trimmed) result.push(trimmed);
+    }
+  }
+
+  return result;
 };
 
 export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]> => {
