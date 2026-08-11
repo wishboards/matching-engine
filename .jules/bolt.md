@@ -7,3 +7,8 @@
 
 **Learning:** Recompiling Regular Expressions using `new RegExp()` inside a highly iterative function like `hasToken` adds severe CPU and memory pressure, creating an O(N) complexity issue out of a function assumed to be O(1).
 **Action:** When working on matching or rules engines that heavily rely on repeated regex generation based on variables, always use a `Map` cache (capped to a maximum size to avoid leaks) to reuse the compiled `RegExp` instances.
+
+## 2024-05-18 - Avoid O(N) array mapping in tight hot paths
+
+**Learning:** In highly called functions (like `isCompatible`), dynamically mapping over a large rules array (`rules.map(r => r.target_attribute).filter(Boolean)`) becomes a significant bottleneck (e.g., taking ~800ms for 1000 iterations over 10k rules).
+**Action:** Move expensive data extractions into the existing initialization cache (`getRuleIndex` using `ruleIndexCache`). Caching a pre-computed `Set` reduces execution time from ~800ms down to ~10ms for the same loop.

@@ -6,6 +6,7 @@ export interface RuleIndex {
   acceptance: Map<string, Rule[]>;
   exclusion: Rule[];
   cross_match: Map<string, Rule[]>;
+  all_target_attributes: Set<string>;
 }
 
 const ruleIndexCache = new WeakMap<Rule[], RuleIndex>();
@@ -19,8 +20,14 @@ export const getRuleIndex = (rules: Rule[]): RuleIndex => {
       acceptance: new Map(),
       exclusion: [],
       cross_match: new Map(),
+      all_target_attributes: new Set(),
     };
     for (const r of rules) {
+      // ⚡ Bolt Optimization: Cache unique target attributes during index creation.
+      // This prevents an O(N) rules.map(...).filter(...) on every isCompatible call.
+      if (r.target_attribute) {
+        index.all_target_attributes.add(r.target_attribute);
+      }
       if (r.rule_type === 'exclusion') {
         index.exclusion.push(r);
       } else if (r.rule_type === 'enrichment') {
@@ -397,7 +404,7 @@ export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = 
     ...Object.keys(creatorProfile),
     ...Object.keys(desiredParsed),
     ...Object.keys(searcherProfile),
-    ...rules.map((r) => r.target_attribute).filter(Boolean),
+    ...getRuleIndex(rules).all_target_attributes,
   ]);
 
   for (const cat of allCategories) {
