@@ -121,8 +121,7 @@ export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]
 
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const keys = Object.keys(parsed as Record<string, unknown>);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
+    for (const key of keys) {
       result[key] = normalizeArrayInput((parsed as Record<string, unknown>)[key]);
     }
 
