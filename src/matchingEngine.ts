@@ -6,6 +6,7 @@ export interface RuleIndex {
   acceptance: Map<string, Rule[]>;
   exclusion: Rule[];
   cross_match: Map<string, Rule[]>;
+  all_target_attributes: Set<string>;
 }
 
 const ruleIndexCache = new WeakMap<Rule[], RuleIndex>();
@@ -19,8 +20,12 @@ export const getRuleIndex = (rules: Rule[]): RuleIndex => {
       acceptance: new Map(),
       exclusion: [],
       cross_match: new Map(),
+      all_target_attributes: new Set<string>(),
     };
     for (const r of rules) {
+      if (r.target_attribute) {
+        index.all_target_attributes.add(r.target_attribute);
+      }
       if (r.rule_type === 'exclusion') {
         index.exclusion.push(r);
       } else if (r.rule_type === 'enrichment') {
@@ -98,18 +103,30 @@ export const normalizeArrayInput = (value: unknown): string[] => {
     .filter(Boolean);
 };
 
-export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]> => {
-  const result: Record<string, string[]> = {};
-  if (!rawAttrs) return result;
+const parsedAttributesCache = new WeakMap<object, Record<string, string[]>>();
 
+export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]> => {
+  if (!rawAttrs) return {};
+
+  if (typeof rawAttrs === 'object' && !Array.isArray(rawAttrs)) {
+    const cached = parsedAttributesCache.get(rawAttrs as object);
+    if (cached) return cached;
+  }
+
+  const result: Record<string, string[]> = {};
   let parsed = rawAttrs;
   if (typeof rawAttrs === 'string') {
     parsed = parseJsonSafe(rawAttrs);
   }
 
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-    for (const key of Object.keys(parsed as Record<string, unknown>)) {
+    const keys = Object.keys(parsed as Record<string, unknown>);
+    for (const key of keys) {
       result[key] = normalizeArrayInput((parsed as Record<string, unknown>)[key]);
+    }
+
+    if (typeof rawAttrs === 'object') {
+      parsedAttributesCache.set(rawAttrs as object, result);
     }
   }
   return result;
@@ -353,35 +370,9 @@ export const matchesImplicitPreference = (
  * @returns True if creator and searcher are mutually compatible under the rule set.
  */
 export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = []): boolean => {
-  const creatorProfileRaw =
-    typeof wish.creator_attributes === 'string'
-      ? parseJsonSafe(wish.creator_attributes)
-      : wish.creator_attributes || {};
-
-  const desiredProfileRaw =
-    typeof wish.desired_attributes === 'string'
-      ? parseJsonSafe(wish.desired_attributes)
-      : wish.desired_attributes || {};
-
-  const searcherProfileRaw =
-    typeof searcher.identity_attributes === 'string'
-      ? parseJsonSafe(searcher.identity_attributes)
-      : searcher.identity_attributes || {};
-
-  const creatorParsed: Record<string, string[]> = {};
-  for (const key of Object.keys(creatorProfileRaw)) {
-    creatorParsed[key] = normalizeArrayInput(creatorProfileRaw[key]);
-  }
-
-  const desiredParsed: Record<string, string[]> = {};
-  for (const key of Object.keys(desiredProfileRaw)) {
-    desiredParsed[key] = normalizeArrayInput(desiredProfileRaw[key]);
-  }
-
-  const searcherParsed: Record<string, string[]> = {};
-  for (const key of Object.keys(searcherProfileRaw)) {
-    searcherParsed[key] = normalizeArrayInput(searcherProfileRaw[key]);
-  }
+  const creatorParsed = parseAttributesInput(wish.creator_attributes);
+  const desiredParsed = parseAttributesInput(wish.desired_attributes);
+  const searcherParsed = parseAttributesInput(searcher.identity_attributes);
 
   const creatorProfile: Record<string, string[]> = {};
   for (const key of Object.keys(creatorParsed)) {
@@ -397,7 +388,7 @@ export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = 
     ...Object.keys(creatorProfile),
     ...Object.keys(desiredParsed),
     ...Object.keys(searcherProfile),
-    ...rules.map((r) => r.target_attribute).filter(Boolean),
+    ...getRuleIndex(rules).all_target_attributes,
   ]);
 
   for (const cat of allCategories) {
