@@ -97,10 +97,26 @@ export const normalizeArrayInput = (value: unknown): string[] => {
     return [];
   }
   const array = Array.isArray(value) ? value : [value];
-  return array
-    .flatMap((item) => String(item).split(','))
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const result: string[] = [];
+  for (const item of array) {
+    const strItem =
+      typeof item === 'string'
+        ? item
+        : typeof item === 'number' || typeof item === 'boolean'
+          ? String(item)
+          : String(item ?? '');
+
+    if (!strItem) continue;
+
+    const parts = strItem.split(',');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed) {
+        result.push(trimmed);
+      }
+    }
+  }
+  return result;
 };
 
 const parsedAttributesCache = new WeakMap<object, Record<string, string[]>>();
@@ -160,8 +176,11 @@ export const getExpandedDesired = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-        targets.forEach((t) => result.add(t));
+        const targets = rule.target_value.split(',');
+        for (const t of targets) {
+          const trimmed = t.trim();
+          if (trimmed) result.add(trimmed.toLowerCase());
+        }
       }
     }
   }
@@ -182,14 +201,16 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens = rule.trigger_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-    const targetTokens = rule.target_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+    const triggerTokens: string[] = [];
+    for (const t of rule.trigger_value.split(',')) {
+      const trimmed = t.trim();
+      if (trimmed) triggerTokens.push(trimmed.toLowerCase());
+    }
+    const targetTokens: string[] = [];
+    for (const t of rule.target_value.split(',')) {
+      const trimmed = t.trim();
+      if (trimmed) targetTokens.push(trimmed.toLowerCase());
+    }
 
     const hasTrigger = triggerTokens.some((token) =>
       expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
@@ -198,10 +219,11 @@ export const getExclusionConflicts = (
     let hasContext = true;
     if (rule.context_attribute && rule.context_value) {
       const ctxAttr = rule.context_attribute;
-      const contextTokens = rule.context_value
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
+      const contextTokens: string[] = [];
+      for (const t of rule.context_value.split(',')) {
+        const trimmed = t.trim();
+        if (trimmed) contextTokens.push(trimmed.toLowerCase());
+      }
       hasContext = contextTokens.some((token) =>
         expandedAttrs[ctxAttr]?.some((attrVal: string) => hasToken(attrVal, token))
       );
@@ -274,8 +296,11 @@ export const buildAcceptedSet = (
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
-      const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-      targets.forEach((t) => accepted.add(t));
+      const targets = rule.target_value.split(',');
+      for (const t of targets) {
+        const trimmed = t.trim();
+        if (trimmed) accepted.add(trimmed.toLowerCase());
+      }
     }
   }
   return accepted;
@@ -290,10 +315,22 @@ export const applyCrossRule = (
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
   if (hasToken(val, rule.trigger_value)) {
-    const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-    targets.forEach((t) => result.add(t));
+    const targets = rule.target_value.split(',');
+    for (const t of targets) {
+      const trimmed = t.trim();
+      if (trimmed) result.add(trimmed.toLowerCase());
+    }
   }
-  if (rule.target_value.split(',').some((t) => hasToken(val, t.trim().toLowerCase()))) {
+  const parts = rule.target_value.split(',');
+  let hasMatch = false;
+  for (const t of parts) {
+    const trimmed = t.trim();
+    if (trimmed && hasToken(val, trimmed.toLowerCase())) {
+      hasMatch = true;
+      break;
+    }
+  }
+  if (hasMatch) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };

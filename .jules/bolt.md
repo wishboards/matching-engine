@@ -12,3 +12,8 @@
 
 **Learning:** Found multiple bottlenecks in `matchingEngine.ts` caused by recalculations and redundant iterations across large rule sets. For example, `parseAttributesInput` was unnecessarily re-parsing the same object repeatedly. In `isCompatible`, computing `allCategories` looped over every rule to map target attributes, and `hasToken` normalized the full string again for every check. Additionally, `getRuleIndex` wasn't caching `target_attribute`s forcing recalculations later. Finally, `normalizeArrayInput` was creating multiple arrays with `.flatMap()` leading to slow performance on large profile objects.
 **Action:** Caching parsing (`parsedAttributesCache`), pre-indexing target attributes directly into `RuleIndex.all_target_attributes`, implementing early returns, rewriting flatMap to native loops, and avoiding string token normalization on cache hits yielded >20% better throughput on high rule/profile density. Next time, always check if `.flatMap` and map-over-arrays inside high-frequency checks like `isCompatible` can be natively looped or cached in index caches!
+
+## 2024-08-13 - Array Method Chaining Overhead
+
+**Learning:** Chaining multiple array methods like `.flatMap().map().filter()` inside hot paths (e.g., parsing raw attributes or extracting rule tokens) creates significant memory pressure from intermediate array allocations and closure executions.
+**Action:** Always replace chained array operations with imperative `for...of` loops when optimizing high-frequency parsing loops or matching engines to reduce garbage collection load and improve CPU throughput.
