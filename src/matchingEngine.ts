@@ -165,6 +165,13 @@ export const matchesContext = (
   return expandedCtxVals.some((v) => hasToken(v, rule.context_value!));
 };
 
+const addTargetsToSet = (targetValue: string, result: Set<string>): void => {
+  for (const t of targetValue.split(',')) {
+    const trimmed = t.trim();
+    if (trimmed) result.add(trimmed.toLowerCase());
+  }
+};
+
 export const getExpandedDesired = (
   desiredVals: string[],
   category: string,
@@ -176,16 +183,10 @@ export const getExpandedDesired = (
 
   for (const val of desiredVals) {
     for (const rule of expandRules) {
-      if (hasToken(val, rule.trigger_value)) {
-        if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
-          continue;
-        }
-        const targets = rule.target_value.split(',');
-        for (const t of targets) {
-          const trimmed = t.trim();
-          if (trimmed) result.add(trimmed.toLowerCase());
-        }
-      }
+      if (!hasToken(val, rule.trigger_value)) continue;
+      if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) continue;
+
+      addTargetsToSet(rule.target_value, result);
     }
   }
   return Array.from(result);
@@ -314,6 +315,14 @@ export const buildAcceptedSet = (
   return accepted;
 };
 
+const hasAnyTokenMatch = (val: string, targetValue: string): boolean => {
+  for (const t of targetValue.split(',')) {
+    const trimmed = t.trim();
+    if (trimmed && hasToken(val, trimmed.toLowerCase())) return true;
+  }
+  return false;
+};
+
 export const applyCrossRule = (
   val: string,
   rule: Rule,
@@ -322,23 +331,12 @@ export const applyCrossRule = (
   result: Set<string>
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
+
   if (hasToken(val, rule.trigger_value)) {
-    const targets = rule.target_value.split(',');
-    for (const t of targets) {
-      const trimmed = t.trim();
-      if (trimmed) result.add(trimmed.toLowerCase());
-    }
+    addTargetsToSet(rule.target_value, result);
   }
-  const parts = rule.target_value.split(',');
-  let hasMatch = false;
-  for (const t of parts) {
-    const trimmed = t.trim();
-    if (trimmed && hasToken(val, trimmed.toLowerCase())) {
-      hasMatch = true;
-      break;
-    }
-  }
-  if (hasMatch) {
+
+  if (hasAnyTokenMatch(val, rule.target_value)) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };
