@@ -43,12 +43,12 @@ export const normalizeArrayInput = (value: unknown): string[] => {
   const result: string[] = [];
 
   // Use a simple loop to avoid multiple intermediate array allocations from flatMap, map, and filter
-  for (let i = 0; i < array.length; i++) {
-    const item = String(array[i]);
+  for (const rawItem of array) {
+    const item = typeof rawItem === 'string' ? rawItem : String(rawItem ?? '');
     if (item.includes(',')) {
       const parts = item.split(',');
-      for (let j = 0; j < parts.length; j++) {
-        const trimmed = parts[j].trim();
+      for (const part of parts) {
+        const trimmed = part.trim();
         if (trimmed) result.push(trimmed);
       }
     } else {
