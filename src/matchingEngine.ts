@@ -191,6 +191,20 @@ export const getExpandedDesired = (
   return Array.from(result);
 };
 
+const parseTokens = (value: string): string[] => {
+  const tokens: string[] = [];
+  for (const t of value.split(',')) {
+    const trimmed = t.trim();
+    if (trimmed) tokens.push(trimmed.toLowerCase());
+  }
+  return tokens;
+};
+
+const hasTokenMatch = (tokens: string[], attributeVals: string[] | undefined): boolean => {
+  if (!attributeVals) return false;
+  return tokens.some((token) => attributeVals.some((attrVal) => hasToken(attrVal, token)));
+};
+
 export const getExclusionConflicts = (
   attributes: Record<string, string[]>,
   rules: Rule[] = []
@@ -205,39 +219,29 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens: string[] = [];
-    for (const t of rule.trigger_value.split(',')) {
-      const trimmed = t.trim();
-      if (trimmed) triggerTokens.push(trimmed.toLowerCase());
-    }
-    const targetTokens: string[] = [];
-    for (const t of rule.target_value.split(',')) {
-      const trimmed = t.trim();
-      if (trimmed) targetTokens.push(trimmed.toLowerCase());
-    }
-
-    const hasTrigger = triggerTokens.some((token) =>
-      expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
+    const hasTrigger = hasTokenMatch(
+      parseTokens(rule.trigger_value),
+      expandedAttrs[rule.trigger_attribute]
     );
+
+    if (!hasTrigger) continue;
 
     let hasContext = true;
     if (rule.context_attribute && rule.context_value) {
-      const ctxAttr = rule.context_attribute;
-      const contextTokens: string[] = [];
-      for (const t of rule.context_value.split(',')) {
-        const trimmed = t.trim();
-        if (trimmed) contextTokens.push(trimmed.toLowerCase());
-      }
-      hasContext = contextTokens.some((token) =>
-        expandedAttrs[ctxAttr]?.some((attrVal: string) => hasToken(attrVal, token))
+      hasContext = hasTokenMatch(
+        parseTokens(rule.context_value),
+        expandedAttrs[rule.context_attribute]
       );
     }
 
-    const hasTarget = targetTokens.some((token) =>
-      expandedAttrs[rule.target_attribute]?.some((attrVal: string) => hasToken(attrVal, token))
+    if (!hasContext) continue;
+
+    const hasTarget = hasTokenMatch(
+      parseTokens(rule.target_value),
+      expandedAttrs[rule.target_attribute]
     );
 
-    if (hasTrigger && hasContext && hasTarget) {
+    if (hasTarget) {
       conflicts.push({
         rule_id: rule.id,
         trigger_attribute: rule.trigger_attribute,
@@ -410,6 +414,32 @@ export const matchesImplicitPreference = (
  * @param rules Dynamic matching rules array (expansion, enrichment, acceptance, exclusion, cross_match).
  * @returns True if creator and searcher are mutually compatible under the rule set.
  */
+const checkCategoryCompatibility = (
+  cat: string,
+  creatorProfile: Record<string, string[]>,
+  desiredParsed: Record<string, string[]>,
+  searcherProfile: Record<string, string[]>,
+  rules: Rule[]
+): boolean => {
+  const creatorVals = creatorProfile[cat] || [];
+  if (!matchesImplicitPreference(searcherProfile, creatorVals, cat, rules)) {
+    return false;
+  }
+
+  const desiredVals = desiredParsed[cat] || [];
+  if (desiredVals.length > 0) {
+    if (!matchesAttribute(searcherProfile[cat] || [], desiredVals, cat, rules, searcherProfile)) {
+      return false;
+    }
+  } else {
+    const searcherVals = searcherProfile[cat] || [];
+    if (!matchesImplicitPreference(creatorProfile, searcherVals, cat, rules)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = []): boolean => {
   const creatorParsed = parseAttributesInput(wish.creator_attributes);
   const desiredParsed = parseAttributesInput(wish.desired_attributes);
@@ -433,23 +463,8 @@ export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = 
   ]);
 
   for (const cat of allCategories) {
-    // 1. Does searcher accept creator's attributes for category `cat`?
-    const creatorVals = creatorProfile[cat] || [];
-    if (!matchesImplicitPreference(searcherProfile, creatorVals, cat, rules)) {
+    if (!checkCategoryCompatibility(cat, creatorProfile, desiredParsed, searcherProfile, rules)) {
       return false;
-    }
-
-    // 2. Does creator accept searcher's attributes for category `cat`?
-    const desiredVals = desiredParsed[cat] || [];
-    if (desiredVals.length > 0) {
-      if (!matchesAttribute(searcherProfile[cat] || [], desiredVals, cat, rules, searcherProfile)) {
-        return false;
-      }
-    } else {
-      const searcherVals = searcherProfile[cat] || [];
-      if (!matchesImplicitPreference(creatorProfile, searcherVals, cat, rules)) {
-        return false;
-      }
     }
   }
 
