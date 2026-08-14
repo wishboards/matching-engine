@@ -109,7 +109,7 @@ export const normalizeArrayInput = (value: unknown): string[] => {
     } else if (typeof item === 'number' || typeof item === 'boolean') {
       strItem = String(item);
     } else {
-      strItem = String(item as string | number | boolean);
+      strItem = String(item ?? '');
     }
 
     const parts = strItem.split(',');
@@ -165,6 +165,13 @@ export const matchesContext = (
   return expandedCtxVals.some((v) => hasToken(v, rule.context_value!));
 };
 
+const addTargetsToSet = (targetValue: string, result: Set<string>): void => {
+  for (const t of targetValue.split(',')) {
+    const trimmed = t.trim();
+    if (trimmed) result.add(trimmed.toLowerCase());
+  }
+};
+
 export const getExpandedDesired = (
   desiredVals: string[],
   category: string,
@@ -176,16 +183,27 @@ export const getExpandedDesired = (
 
   for (const val of desiredVals) {
     for (const rule of expandRules) {
-      if (hasToken(val, rule.trigger_value)) {
-        if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
-          continue;
-        }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-        targets.forEach((t) => result.add(t));
-      }
+      if (!hasToken(val, rule.trigger_value)) continue;
+      if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) continue;
+
+      addTargetsToSet(rule.target_value, result);
     }
   }
   return Array.from(result);
+};
+
+const parseTokens = (value: string): string[] => {
+  const tokens: string[] = [];
+  for (const t of value.split(',')) {
+    const trimmed = t.trim();
+    if (trimmed) tokens.push(trimmed.toLowerCase());
+  }
+  return tokens;
+};
+
+const hasTokenMatch = (tokens: string[], attributeVals: string[] | undefined): boolean => {
+  if (!attributeVals) return false;
+  return tokens.some((token) => attributeVals.some((attrVal) => hasToken(attrVal, token)));
 };
 
 export const getExclusionConflicts = (
@@ -202,36 +220,29 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens = rule.trigger_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-    const targetTokens = rule.target_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-
-    const hasTrigger = triggerTokens.some((token) =>
-      expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
+    const hasTrigger = hasTokenMatch(
+      parseTokens(rule.trigger_value),
+      expandedAttrs[rule.trigger_attribute]
     );
+
+    if (!hasTrigger) continue;
 
     let hasContext = true;
     if (rule.context_attribute && rule.context_value) {
-      const ctxAttr = rule.context_attribute;
-      const contextTokens = rule.context_value
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
-      hasContext = contextTokens.some((token) =>
-        expandedAttrs[ctxAttr]?.some((attrVal: string) => hasToken(attrVal, token))
+      hasContext = hasTokenMatch(
+        parseTokens(rule.context_value),
+        expandedAttrs[rule.context_attribute]
       );
     }
 
-    const hasTarget = targetTokens.some((token) =>
-      expandedAttrs[rule.target_attribute]?.some((attrVal: string) => hasToken(attrVal, token))
+    if (!hasContext) continue;
+
+    const hasTarget = hasTokenMatch(
+      parseTokens(rule.target_value),
+      expandedAttrs[rule.target_attribute]
     );
 
-    if (hasTrigger && hasContext && hasTarget) {
+    if (hasTarget) {
       conflicts.push({
         rule_id: rule.id,
         trigger_attribute: rule.trigger_attribute,
@@ -294,11 +305,22 @@ export const buildAcceptedSet = (
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
-      const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-      targets.forEach((t) => accepted.add(t));
+      const targets = rule.target_value.split(',');
+      for (const t of targets) {
+        const trimmed = t.trim();
+        if (trimmed) accepted.add(trimmed.toLowerCase());
+      }
     }
   }
   return accepted;
+};
+
+const hasAnyTokenMatch = (val: string, targetValue: string): boolean => {
+  for (const t of targetValue.split(',')) {
+    const trimmed = t.trim();
+    if (trimmed && hasToken(val, trimmed.toLowerCase())) return true;
+  }
+  return false;
 };
 
 export const applyCrossRule = (
@@ -309,11 +331,12 @@ export const applyCrossRule = (
   result: Set<string>
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
+
   if (hasToken(val, rule.trigger_value)) {
-    const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-    targets.forEach((t) => result.add(t));
+    addTargetsToSet(rule.target_value, result);
   }
-  if (rule.target_value.split(',').some((t) => hasToken(val, t.trim().toLowerCase()))) {
+
+  if (hasAnyTokenMatch(val, rule.target_value)) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };
@@ -389,6 +412,32 @@ export const matchesImplicitPreference = (
  * @param rules Dynamic matching rules array (expansion, enrichment, acceptance, exclusion, cross_match).
  * @returns True if creator and searcher are mutually compatible under the rule set.
  */
+const checkCategoryCompatibility = (
+  cat: string,
+  creatorProfile: Record<string, string[]>,
+  desiredParsed: Record<string, string[]>,
+  searcherProfile: Record<string, string[]>,
+  rules: Rule[]
+): boolean => {
+  const creatorVals = creatorProfile[cat] || [];
+  if (!matchesImplicitPreference(searcherProfile, creatorVals, cat, rules)) {
+    return false;
+  }
+
+  const desiredVals = desiredParsed[cat] || [];
+  if (desiredVals.length > 0) {
+    if (!matchesAttribute(searcherProfile[cat] || [], desiredVals, cat, rules, searcherProfile)) {
+      return false;
+    }
+  } else {
+    const searcherVals = searcherProfile[cat] || [];
+    if (!matchesImplicitPreference(creatorProfile, searcherVals, cat, rules)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = []): boolean => {
   const creatorParsed = parseAttributesInput(wish.creator_attributes);
   const desiredParsed = parseAttributesInput(wish.desired_attributes);
@@ -412,23 +461,8 @@ export const isCompatible = (wish: Wish, searcher: UserProfile, rules: Rule[] = 
   ]);
 
   for (const cat of allCategories) {
-    // 1. Does searcher accept creator's attributes for category `cat`?
-    const creatorVals = creatorProfile[cat] || [];
-    if (!matchesImplicitPreference(searcherProfile, creatorVals, cat, rules)) {
+    if (!checkCategoryCompatibility(cat, creatorProfile, desiredParsed, searcherProfile, rules)) {
       return false;
-    }
-
-    // 2. Does creator accept searcher's attributes for category `cat`?
-    const desiredVals = desiredParsed[cat] || [];
-    if (desiredVals.length > 0) {
-      if (!matchesAttribute(searcherProfile[cat] || [], desiredVals, cat, rules, searcherProfile)) {
-        return false;
-      }
-    } else {
-      const searcherVals = searcherProfile[cat] || [];
-      if (!matchesImplicitPreference(creatorProfile, searcherVals, cat, rules)) {
-        return false;
-      }
     }
   }
 
