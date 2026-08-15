@@ -369,22 +369,32 @@ export const matchesAttribute = (
   if (!searcherVals || searcherVals.length === 0) return false;
 
   const normalizedSearcher = new Set(searcherVals.map(normalizeToken));
+
+  // OPTIMIZATION: Early returns for attribute matching.
+  // We evaluate each level of expansion one by one. If a match is found,
+  // we immediately return true, avoiding unnecessary subsequent expansions,
+  // array allocations, and GC overhead.
   const expandedDesired = getExpandedDesired(desiredVals, category, rules, contextProfile);
+  for (const desired of expandedDesired) {
+    if (normalizedSearcher.has(desired)) return true;
+  }
+
   const crossMatchedDesired = getCrossMatchedDesired(desiredVals, category, rules, contextProfile);
+  for (const desired of crossMatchedDesired) {
+    if (normalizedSearcher.has(desired)) return true;
+  }
+
   const expandedCrossMatched = getExpandedDesired(
-    Array.from(crossMatchedDesired),
+    crossMatchedDesired, // No need for Array.from() since getCrossMatchedDesired returns string[]
     category,
     rules,
     contextProfile
   );
+  for (const desired of expandedCrossMatched) {
+    if (normalizedSearcher.has(desired)) return true;
+  }
 
-  const allAcceptable = new Set([
-    ...expandedDesired,
-    ...crossMatchedDesired,
-    ...expandedCrossMatched,
-  ]);
-
-  return Array.from(allAcceptable).some((desired) => normalizedSearcher.has(desired));
+  return false;
 };
 
 export const matchesImplicitPreference = (
