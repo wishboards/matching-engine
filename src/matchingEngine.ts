@@ -263,7 +263,6 @@ export const matchesAttribute = (
   if (!searcherVals || searcherVals.length === 0) return false;
 
   const normalizedSearcher = new Set(searcherVals.map(normalizeToken));
-
   const expandRules: Rule[] = [];
   const crossRules: Rule[] = [];
   for (const r of rules) {
@@ -273,9 +272,17 @@ export const matchesAttribute = (
     }
   }
 
-  const allAcceptable = new Set(desiredVals.map(normalizeToken));
   const crossMatchedDesired = new Set<string>();
+  const seenTargets = new Set<string>();
 
+  // Layer 0: Original desired values
+  for (const val of desiredVals) {
+    const normalizedVal = normalizeToken(val);
+    if (normalizedSearcher.has(normalizedVal)) return true;
+    seenTargets.add(normalizedVal);
+  }
+
+  // Evaluate inlined expansion rules
   for (const val of desiredVals) {
     for (const rule of expandRules) {
       if (hasToken(val, rule.trigger_value)) {
@@ -283,7 +290,10 @@ export const matchesAttribute = (
           continue;
         }
         const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-        targets.forEach((t) => allAcceptable.add(t));
+        for (const t of targets) {
+          if (normalizedSearcher.has(t)) return true;
+          seenTargets.add(t);
+        }
       }
     }
 
@@ -293,21 +303,23 @@ export const matchesAttribute = (
   }
 
   for (const val of crossMatchedDesired) {
-    allAcceptable.add(val);
+    if (normalizedSearcher.has(val)) return true;
+    seenTargets.add(val);
+
     for (const rule of expandRules) {
       if (hasToken(val, rule.trigger_value)) {
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
         const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-        targets.forEach((t) => allAcceptable.add(t));
+        for (const t of targets) {
+          if (normalizedSearcher.has(t)) return true;
+          seenTargets.add(t);
+        }
       }
     }
   }
 
-  for (const desired of allAcceptable) {
-    if (normalizedSearcher.has(desired)) return true;
-  }
   return false;
 };
 
