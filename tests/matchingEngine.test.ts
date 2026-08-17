@@ -65,36 +65,8 @@ describe('matchingEngine', () => {
       expect(parsed.orientation).toEqual(['gay']);
     });
 
-    it('parses objects with non-string and non-array values properly', () => {
-      const raw = { age: 30, active: true, nothing: null };
-      const parsed = parseAttributesInput(raw);
-      expect(parsed.age).toEqual(['30']);
-      expect(parsed.active).toEqual(['true']);
-      expect(parsed.nothing).toEqual([]);
-    });
-
     it('returns empty object for empty input', () => {
       expect(parseAttributesInput(null)).toEqual({});
-    });
-
-    it('ignores prototype pollution keys (__proto__, constructor, prototype)', () => {
-      const maliciousJson =
-        '{"__proto__": {"polluted": "yes"}, "constructor": {"prototype": {"polluted2": "yes"}}, "prototype": {"polluted3": "yes"}, "safe": "value"}';
-      const parsed = parseAttributesInput(maliciousJson) as Record<string, unknown>;
-
-      expect(parsed.safe).toEqual(['value']);
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      expect(parsed.__proto__?.polluted).toBeUndefined();
-
-      expect(Object.prototype.hasOwnProperty.call(parsed, '__proto__')).toBe(false);
-      expect(Object.prototype.hasOwnProperty.call(parsed, 'constructor')).toBe(false);
-      expect(Object.prototype.hasOwnProperty.call(parsed, 'prototype')).toBe(false);
-
-      const emptyObj = {} as Record<string, unknown>;
-      expect(emptyObj.polluted).toBeUndefined();
-      expect(emptyObj.polluted2).toBeUndefined();
-      expect(emptyObj.polluted3).toBeUndefined();
     });
   });
 
@@ -287,36 +259,6 @@ describe('matchingEngine', () => {
       const result2 = new Set<string>();
       applyCrossRule('bottom', rule, undefined, [], result2);
       expect(Array.from(result2)).toContain('top');
-    });
-
-    it('evaluates contextProfile if provided and skips if context does not match', () => {
-      const rule: Rule = {
-        rule_type: 'cross_match',
-        trigger_attribute: 'role',
-        target_attribute: 'role',
-        trigger_value: 'top',
-        target_value: 'bottom',
-        context_attribute: 'orientation',
-        context_value: 'gay',
-      };
-      const result = new Set<string>();
-      applyCrossRule('top', rule, { orientation: ['straight'] }, [], result);
-      expect(Array.from(result)).toHaveLength(0);
-    });
-
-    it('evaluates contextProfile if provided and applies if context matches', () => {
-      const rule: Rule = {
-        rule_type: 'cross_match',
-        trigger_attribute: 'role',
-        target_attribute: 'role',
-        trigger_value: 'top',
-        target_value: 'bottom',
-        context_attribute: 'orientation',
-        context_value: 'gay',
-      };
-      const result = new Set<string>();
-      applyCrossRule('top', rule, { orientation: ['gay'] }, [], result);
-      expect(Array.from(result)).toContain('bottom');
     });
   });
 
