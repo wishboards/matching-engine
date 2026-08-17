@@ -27,3 +27,8 @@
 
 **Learning:** Eagerly computing all possible expansion values (synonyms, cross-matches) and merging them into a single Set before checking for a match causes unnecessary allocations and GC overhead.
 **Action:** Evaluate expansion layers sequentially, returning early if a match is found before computing subsequent, potentially expensive layers.
+
+## 2023-10-27 - O(N) Array Scans in Hot Paths
+
+**Learning:** In highly dynamic rule evaluations (like `matchingEngine.ts`), performing linear `Array.prototype.filter` or scans inside hot paths over a large `rules` array leads to severe performance degradation due to repeated O(N) operations for rule categorization.
+**Action:** Use a `WeakMap` to index rules by their semantic types (`rule_type`, `rule_type:target_attribute`, etc.) using the `rules` array reference as the key. This allows for O(1) retrieval of relevant rules without risking memory leaks (the index gets GC'd if the rules array is released). Note: The memory hint mentioned external callers should avoid recreating the rules array reference. This cache leverages that constraint to maintain high hit rates.
