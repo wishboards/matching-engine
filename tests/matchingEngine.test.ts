@@ -4,6 +4,7 @@ import {
   escapeRegExp,
   hasToken,
   parseJsonSafe,
+  normalizeArrayInput,
   parseAttributesInput,
   matchesContext,
   getExpandedDesired,
@@ -38,6 +39,42 @@ describe('matchingEngine', () => {
     it('matches whole word tokens', () => {
       expect(hasToken('gay man', 'man')).toBe(true);
       expect(hasToken('human', 'man')).toBe(false);
+    });
+  });
+
+  describe('normalizeArrayInput', () => {
+    it('returns empty array for falsy values', () => {
+      expect(normalizeArrayInput(null)).toEqual([]);
+      expect(normalizeArrayInput(undefined)).toEqual([]);
+      expect(normalizeArrayInput('')).toEqual([]);
+    });
+
+    it('returns array for single string input', () => {
+      expect(normalizeArrayInput('man')).toEqual(['man']);
+    });
+
+    it('splits comma-separated strings', () => {
+      expect(normalizeArrayInput('man,woman')).toEqual(['man', 'woman']);
+    });
+
+    it('trims whitespace and removes empty items', () => {
+      expect(normalizeArrayInput(' man , , woman ')).toEqual(['man', 'woman']);
+    });
+
+    it('handles arrays of strings', () => {
+      expect(normalizeArrayInput(['man', 'woman'])).toEqual(['man', 'woman']);
+    });
+
+    it('handles arrays containing comma-separated strings', () => {
+      expect(normalizeArrayInput(['man,woman', 'non-binary'])).toEqual([
+        'man',
+        'woman',
+        'non-binary',
+      ]);
+    });
+
+    it('filters out falsy values in arrays', () => {
+      expect(normalizeArrayInput(['man', '', null, 'woman'])).toEqual(['man', 'null', 'woman']);
     });
   });
 
@@ -119,6 +156,34 @@ describe('matchingEngine', () => {
       const contextProfile = { orientation: ['homosexual'] };
       expect(matchesContext(rule, contextProfile, rules)).toBe(true);
     });
+
+    it('returns false when context profile does not have the context attribute', () => {
+      const rule: Rule = {
+        rule_type: 'enrichment',
+        trigger_attribute: 'orientation',
+        trigger_value: 'gay',
+        target_attribute: 'gender',
+        target_value: 'man',
+        context_attribute: 'orientation',
+        context_value: 'gay',
+      };
+      const contextProfile = { gender: ['man'] };
+      expect(matchesContext(rule, contextProfile)).toBe(false);
+    });
+
+    it('returns false when context profile has the context attribute but no values match', () => {
+      const rule: Rule = {
+        rule_type: 'enrichment',
+        trigger_attribute: 'orientation',
+        trigger_value: 'gay',
+        target_attribute: 'gender',
+        target_value: 'man',
+        context_attribute: 'orientation',
+        context_value: 'gay',
+      };
+      const contextProfile = { orientation: ['straight'] };
+      expect(matchesContext(rule, contextProfile)).toBe(false);
+    });
   });
 
   describe('getExpandedDesired', () => {
@@ -151,6 +216,16 @@ describe('matchingEngine', () => {
         target_attribute: 'role',
         target_value: 'bottom',
       },
+      {
+        id: 'ex2',
+        rule_type: 'exclusion',
+        trigger_attribute: 'toy',
+        trigger_value: 'rope',
+        target_attribute: 'toy',
+        target_value: 'knife',
+        context_attribute: 'play_style',
+        context_value: 'soft',
+      },
     ];
 
     it('detects mutually exclusive attribute combinations', () => {
@@ -162,6 +237,25 @@ describe('matchingEngine', () => {
 
     it('returns empty array when no conflicts exist', () => {
       const attributes = { role: ['top', 'switch'] };
+      const conflicts = getExclusionConflicts(attributes, rules);
+      expect(conflicts).toEqual([]);
+    });
+
+    it('detects conflicts when context condition is met', () => {
+      const attributes = { toy: ['rope', 'knife'], play_style: ['soft'] };
+      const conflicts = getExclusionConflicts(attributes, rules);
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0].rule_id).toBe('ex2');
+    });
+
+    it('returns empty array when context condition is not met', () => {
+      const attributes = { toy: ['rope', 'knife'], play_style: ['hard'] };
+      const conflicts = getExclusionConflicts(attributes, rules);
+      expect(conflicts).toEqual([]);
+    });
+
+    it('returns empty array when context attribute is missing entirely', () => {
+      const attributes = { toy: ['rope', 'knife'] };
       const conflicts = getExclusionConflicts(attributes, rules);
       expect(conflicts).toEqual([]);
     });
