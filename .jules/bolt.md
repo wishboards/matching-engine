@@ -1,7 +1,7 @@
 ## 2024-08-06 - Optimized Rule Evaluation
 
 **Learning:** When writing performance enhancements, repeated $O(N)$ operations against large arrays (like an entire rule set) compound when functions chain together.
-**Action:** Filtering an array once and evaluating rules directly avoids redundant loops when calling multiple independent helpers (`getExpandedDesired`, `getCrossMatchedDesired`).
+**Action:** Filtering an array once and evaluating rules directly avoids redundant loops when calling multiple independent helpers (`getExpandedDesired`, `getCrossMatchedDesired`). When doing this, ensure early returns are preserved within the inlined logic to avoid unnecessary allocations.
 
 ## 2024-08-07 - RegExp Compilation in Hot Paths
 
@@ -22,3 +22,8 @@
 
 **Learning:** Avoid executing identical string allocations and array manipulation (like `.split(',').map(...)`) inside a nested loop if they only depend on the outer/inner collection variables that don't change.
 **Action:** When iterating over combinations (e.g. comparing many items against many rules), identify operations tied to just one of the collections and hoist them outside the loop entirely.
+
+## 2026-08-16 - [Early Returns in Expansion Layers]
+
+**Learning:** Eagerly computing all possible expansion values (synonyms, cross-matches) and merging them into a single Set before checking for a match causes unnecessary allocations and GC overhead.
+**Action:** Evaluate expansion layers sequentially, returning early if a match is found before computing subsequent, potentially expensive layers.
