@@ -4,6 +4,7 @@ import {
   escapeRegExp,
   hasToken,
   parseJsonSafe,
+  parseAttributesInput,
   matchesContext,
   getExpandedDesired,
   getExclusionConflicts,
@@ -53,6 +54,19 @@ describe('matchingEngine', () => {
     it('returns empty object on invalid json', () => {
       expect(parseJsonSafe('invalid json')).toEqual({});
       expect(parseJsonSafe(null)).toEqual({});
+    });
+  });
+
+  describe('parseAttributesInput', () => {
+    it('parses JSON string or object into normalized array attributes', () => {
+      const raw = JSON.stringify({ gender: ['man'], orientation: 'gay' });
+      const parsed = parseAttributesInput(raw);
+      expect(parsed.gender).toEqual(['man']);
+      expect(parsed.orientation).toEqual(['gay']);
+    });
+
+    it('returns empty object for empty input', () => {
+      expect(parseAttributesInput(null)).toEqual({});
     });
   });
 

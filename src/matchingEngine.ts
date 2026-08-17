@@ -35,6 +35,23 @@ export const normalizeArrayInput = (value: unknown): string[] => {
     .filter(Boolean);
 };
 
+export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]> => {
+  const result: Record<string, string[]> = {};
+  if (!rawAttrs) return result;
+
+  let parsed = rawAttrs;
+  if (typeof rawAttrs === 'string') {
+    parsed = parseJsonSafe(rawAttrs);
+  }
+
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    for (const key of Object.keys(parsed as Record<string, unknown>)) {
+      result[key] = normalizeArrayInput((parsed as Record<string, unknown>)[key]);
+    }
+  }
+  return result;
+};
+
 export const matchesContext = (
   rule: Rule,
   contextProfile: Record<string, string[]> | undefined,
