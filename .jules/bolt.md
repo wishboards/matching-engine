@@ -17,3 +17,8 @@
 
 **Learning:** Replacing `.flatMap().map().filter()` with a native `for...of` loop provides a ~50% performance increase in `normalizeArrayInput`. However, to pass SonarCloud's strict checks on coercing `unknown` types to string, it's necessary to explicitly type-narrow/cast the values (e.g., checking if it's a string, number, or boolean before calling `String()`).
 **Action:** When converting chained array operations to native loops in this codebase, ensure `unknown` types are properly narrowed before string coercion to satisfy the CI quality gate, maintaining both performance and code health.
+
+## 2026-08-16 - [Early Returns in Expansion Layers]
+
+**Learning:** Eagerly computing all possible expansion values (synonyms, cross-matches) and merging them into a single Set before checking for a match causes unnecessary allocations and GC overhead.
+**Action:** Evaluate expansion layers sequentially, returning early if a match is found before computing subsequent, potentially expensive layers.
