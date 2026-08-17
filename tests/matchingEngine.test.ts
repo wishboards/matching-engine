@@ -65,6 +65,14 @@ describe('matchingEngine', () => {
       expect(parsed.orientation).toEqual(['gay']);
     });
 
+    it('parses objects with non-string and non-array values properly', () => {
+      const raw = { age: 30, active: true, nothing: null };
+      const parsed = parseAttributesInput(raw);
+      expect(parsed.age).toEqual(['30']);
+      expect(parsed.active).toEqual(['true']);
+      expect(parsed.nothing).toEqual([]);
+    });
+
     it('returns empty object for empty input', () => {
       expect(parseAttributesInput(null)).toEqual({});
     });
