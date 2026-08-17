@@ -207,6 +207,44 @@ const hasTokenMatch = (tokens: string[], attributeVals: string[] | undefined): b
   return tokens.some((token) => attributeVals.some((attrVal) => hasToken(attrVal, token)));
 };
 
+const findExclusionConflict = (
+  rule: Rule,
+  expandedAttrs: Record<string, string[]>
+): Conflict | null => {
+  const hasTrigger = hasTokenMatch(
+    parseTokens(rule.trigger_value),
+    expandedAttrs[rule.trigger_attribute]
+  );
+  if (!hasTrigger) return null;
+
+  if (rule.context_attribute && rule.context_value) {
+    const hasContext = hasTokenMatch(
+      parseTokens(rule.context_value),
+      expandedAttrs[rule.context_attribute]
+    );
+    if (!hasContext) return null;
+  }
+
+  const hasTarget = hasTokenMatch(
+    parseTokens(rule.target_value),
+    expandedAttrs[rule.target_attribute]
+  );
+
+  if (hasTarget) {
+    return {
+      rule_id: rule.id,
+      trigger_attribute: rule.trigger_attribute,
+      trigger_value: rule.trigger_value,
+      context_attribute: rule.context_attribute || null,
+      context_value: rule.context_value || null,
+      target_attribute: rule.target_attribute,
+      target_value: rule.target_value,
+      message: `"${rule.trigger_value}" and "${rule.target_value}" are mutually exclusive.`,
+    };
+  }
+  return null;
+};
+
 export const getExclusionConflicts = (
   attributes: Record<string, string[]>,
   rules: Rule[] = []
@@ -221,40 +259,8 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const hasTrigger = hasTokenMatch(
-      parseTokens(rule.trigger_value),
-      expandedAttrs[rule.trigger_attribute]
-    );
-
-    if (!hasTrigger) continue;
-
-    let hasContext = true;
-    if (rule.context_attribute && rule.context_value) {
-      hasContext = hasTokenMatch(
-        parseTokens(rule.context_value),
-        expandedAttrs[rule.context_attribute]
-      );
-    }
-
-    if (!hasContext) continue;
-
-    const hasTarget = hasTokenMatch(
-      parseTokens(rule.target_value),
-      expandedAttrs[rule.target_attribute]
-    );
-
-    if (hasTarget) {
-      conflicts.push({
-        rule_id: rule.id,
-        trigger_attribute: rule.trigger_attribute,
-        trigger_value: rule.trigger_value,
-        context_attribute: rule.context_attribute || null,
-        context_value: rule.context_value || null,
-        target_attribute: rule.target_attribute,
-        target_value: rule.target_value,
-        message: `"${rule.trigger_value}" and "${rule.target_value}" are mutually exclusive.`,
-      });
-    }
+    const conflict = findExclusionConflict(rule, expandedAttrs);
+    if (conflict) conflicts.push(conflict);
   }
 
   return conflicts;
