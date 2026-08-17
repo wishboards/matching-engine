@@ -9,9 +9,21 @@ export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 };
 
+const MAX_CACHE_SIZE = 1000;
+const tokenRegExpCache = new Map<string, RegExp>();
+
 export const hasToken = (str: unknown, token: string): boolean => {
-  const escapedToken = escapeRegExp(token);
-  return new RegExp(String.raw`\b${escapedToken}\b`, 'i').test(normalizeToken(str));
+  let regex = tokenRegExpCache.get(token);
+  if (!regex) {
+    if (tokenRegExpCache.size >= MAX_CACHE_SIZE) {
+      // Prevent unbounded memory growth by clearing cache when it gets too large
+      tokenRegExpCache.clear();
+    }
+    const escapedToken = escapeRegExp(token);
+    regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
+    tokenRegExpCache.set(token, regex);
+  }
+  return regex.test(normalizeToken(str));
 };
 
 export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
@@ -25,14 +37,27 @@ export const parseJsonSafe = (str: unknown): Record<string, unknown> => {
 };
 
 export const normalizeArrayInput = (value: unknown): string[] => {
-  if (!value) {
-    return [];
-  }
+  if (!value) return [];
+
   const array = Array.isArray(value) ? value : [value];
-  return array
-    .flatMap((item) => String(item).split(','))
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const result: string[] = [];
+
+  // Use a simple loop to avoid multiple intermediate array allocations from flatMap, map, and filter
+  for (const rawItem of array) {
+    const item = typeof rawItem === 'string' ? rawItem : String(rawItem ?? '');
+    if (item.includes(',')) {
+      const parts = item.split(',');
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed) result.push(trimmed);
+      }
+    } else {
+      const trimmed = item.trim();
+      if (trimmed) result.push(trimmed);
+    }
+  }
+
+  return result;
 };
 
 export const parseAttributesInput = (rawAttrs: unknown): Record<string, string[]> => {

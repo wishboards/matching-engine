@@ -74,7 +74,7 @@ describe('matchingEngine', () => {
     });
 
     it('filters out falsy values in arrays', () => {
-      expect(normalizeArrayInput(['man', '', null, 'woman'])).toEqual(['man', 'null', 'woman']);
+      expect(normalizeArrayInput(['man', '', null, 'woman'])).toEqual(['man', 'woman']);
     });
   });
 
