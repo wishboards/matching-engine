@@ -89,8 +89,8 @@ export const getExpandedDesired = (
       if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) continue;
 
       const targets = parsedTargets[i];
-      for (const t of targets) {
-        if (t) result.add(t);
+      for (const target of targets) {
+        if (target) result.add(target);
       }
     }
   }
