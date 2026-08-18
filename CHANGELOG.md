@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.3](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.2...matching-engine-v1.1.3) (2026-08-18)
+
+
+### Performance Improvements
+
+* Index rule lookups to avoid O(N) filtering ([#54](https://github.com/wishboards/matching-engine/issues/54)) ([6ecfba9](https://github.com/wishboards/matching-engine/commit/6ecfba957f980b3635165317ea19c71a6f92522f))
+
 ## [1.1.2](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.1...matching-engine-v1.1.2) (2026-08-17)
 
 
