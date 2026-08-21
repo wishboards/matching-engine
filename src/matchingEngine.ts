@@ -68,6 +68,22 @@ export const getRuleIndex = (rules: Rule[]): RuleIndex => {
 };
 
 const MAX_CACHE_SIZE = 1000;
+
+/**
+ * ⚡ OPTIMIZATION: Cache parsed rule targets and triggers.
+ *
+ * Impact: Prevents repeated string allocation and array creation in hot evaluation loops.
+ */
+const ruleTargetCache = new WeakMap<Rule, string[]>();
+const getRuleTargets = (rule: Rule): string[] => {
+  let targets = ruleTargetCache.get(rule);
+  if (!targets) {
+    targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+    ruleTargetCache.set(rule, targets);
+  }
+  return targets;
+};
+
 const tokenRegExpCache = new Map<string, RegExp>();
 
 export const hasToken = (str: unknown, token: string): boolean => {
@@ -157,9 +173,7 @@ export const getExpandedDesired = (
   const result = new Set(desiredVals.map(normalizeToken));
   const expandRules = getRuleIndex(rules).expansionByCategory.get(category) || [];
 
-  const parsedTargets = expandRules.map((rule) =>
-    rule.target_value.split(',').map((t) => t.trim().toLowerCase())
-  );
+  const parsedTargets = expandRules.map((rule) => getRuleTargets(rule));
 
   for (const val of desiredVals) {
     for (const [i, rule] of expandRules.entries()) {
@@ -280,7 +294,7 @@ export const buildAcceptedSet = (
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
-      const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+      const targets = getRuleTargets(rule);
       targets.forEach((t) => accepted.add(t));
     }
   }
@@ -296,10 +310,10 @@ export const applyCrossRule = (
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
   if (hasToken(val, rule.trigger_value)) {
-    const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+    const targets = getRuleTargets(rule);
     targets.forEach((t) => result.add(t));
   }
-  if (rule.target_value.split(',').some((t) => hasToken(val, t.trim().toLowerCase()))) {
+  if (getRuleTargets(rule).some((t) => hasToken(val, t))) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };
@@ -352,7 +366,7 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        const targets = getRuleTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
           seenTargets.add(t);
@@ -374,7 +388,7 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        const targets = getRuleTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
           seenTargets.add(t);
