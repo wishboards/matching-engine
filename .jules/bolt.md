@@ -32,3 +32,8 @@
 
 **Learning:** In matching engines that take an array of `rules` as an argument and scan it repeatedly (especially inside loops per attribute category), O(N) filtering operations (`rules.filter(...)`) become a significant bottleneck as rule sets grow (e.g. 1000+ rules). Furthermore, cache keys for rule groupings should be minimal; e.g. when cross-match/expansion rules only apply where `trigger_attribute === target_attribute`, indexing simply by `category` avoids dead code and unnecessary Maps.
 **Action:** Always prefer computing an indexed grouping (e.g. via `WeakMap<Rule[], RuleIndex>`) of a rules array when it's passed iteratively. For performance, cache keys should closely reflect exactly what the engine queries rather than indexing all permutations upfront.
+
+## 2024-08-21 - Caching parsed string tokens inside hot loops
+
+**Learning:** Re-splitting and string mapping a rule target string (`rule.target_value.split(',').map(...)`) inside matching loops such as `matchesAttribute` and `getExpandedDesired` forces garbage collection and significant CPU overhead because it happens repeatedly over the same Rule objects inside nested `for` loops.
+**Action:** When a static property of a data object (like a `Rule`'s string fields) needs to be formatted into an array repeatedly, map the raw string into an array inside a `WeakMap` cached getter so the string split operations are executed exactly once per rule over the application lifecycle.
