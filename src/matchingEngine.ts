@@ -70,6 +70,43 @@ export const getRuleIndex = (rules: Rule[]): RuleIndex => {
 const MAX_CACHE_SIZE = 1000;
 const tokenRegExpCache = new Map<string, RegExp>();
 
+const ruleTargetTokensCache = new WeakMap<Rule, string[]>();
+const ruleTriggerTokensCache = new WeakMap<Rule, string[]>();
+const ruleContextTokensCache = new WeakMap<Rule, string[]>();
+
+export const getRuleTargetTokens = (rule: Rule): string[] => {
+  let tokens = ruleTargetTokensCache.get(rule);
+  if (!tokens) {
+    tokens = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+    ruleTargetTokensCache.set(rule, tokens);
+  }
+  return tokens;
+};
+
+export const getRuleTriggerTokens = (rule: Rule): string[] => {
+  let tokens = ruleTriggerTokensCache.get(rule);
+  if (!tokens) {
+    tokens = rule.trigger_value
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    ruleTriggerTokensCache.set(rule, tokens);
+  }
+  return tokens;
+};
+
+export const getRuleContextTokens = (rule: Rule): string[] => {
+  let tokens = ruleContextTokensCache.get(rule);
+  if (!tokens) {
+    tokens = (rule.context_value || '')
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    ruleContextTokensCache.set(rule, tokens);
+  }
+  return tokens;
+};
+
 export const hasToken = (str: unknown, token: string): boolean => {
   let regex = tokenRegExpCache.get(token);
   if (!regex) {
@@ -157,16 +194,12 @@ export const getExpandedDesired = (
   const result = new Set(desiredVals.map(normalizeToken));
   const expandRules = getRuleIndex(rules).expansionByCategory.get(category) || [];
 
-  const parsedTargets = expandRules.map((rule) =>
-    rule.target_value.split(',').map((t) => t.trim().toLowerCase())
-  );
-
   for (const val of desiredVals) {
-    for (const [i, rule] of expandRules.entries()) {
+    for (const rule of expandRules) {
       if (!hasToken(val, rule.trigger_value)) continue;
       if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) continue;
 
-      const targets = parsedTargets[i];
+      const targets = getRuleTargetTokens(rule);
       for (const target of targets) {
         if (target) result.add(target);
       }
@@ -189,14 +222,8 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens = rule.trigger_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-    const targetTokens = rule.target_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+    const triggerTokens = getRuleTriggerTokens(rule);
+    const targetTokens = getRuleTargetTokens(rule).filter(Boolean);
 
     const hasTrigger = triggerTokens.some((token) =>
       expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
@@ -205,10 +232,7 @@ export const getExclusionConflicts = (
     let hasContext = true;
     if (rule.context_attribute && rule.context_value) {
       const ctxAttr = rule.context_attribute;
-      const contextTokens = rule.context_value
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
+      const contextTokens = getRuleContextTokens(rule);
       hasContext = contextTokens.some((token) =>
         expandedAttrs[ctxAttr]?.some((attrVal: string) => hasToken(attrVal, token))
       );
