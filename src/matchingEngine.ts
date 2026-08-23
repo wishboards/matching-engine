@@ -9,6 +9,43 @@ export const escapeRegExp = (string: string): string => {
   return string.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 };
 
+const parsedRuleTargetCache = new WeakMap<Rule, string[]>();
+export const getParsedRuleTargets = (rule: Rule): string[] => {
+  let t = parsedRuleTargetCache.get(rule);
+  if (!t) {
+    t = rule.target_value.split(',').map((str) => str.trim().toLowerCase());
+    parsedRuleTargetCache.set(rule, t);
+  }
+  return t;
+};
+
+const parsedRuleTriggerCache = new WeakMap<Rule, string[]>();
+export const getParsedRuleTriggers = (rule: Rule): string[] => {
+  let t = parsedRuleTriggerCache.get(rule);
+  if (!t) {
+    t = rule.trigger_value
+      .split(',')
+      .map((str) => str.trim().toLowerCase())
+      .filter(Boolean);
+    parsedRuleTriggerCache.set(rule, t);
+  }
+  return t;
+};
+
+const parsedRuleContextCache = new WeakMap<Rule, string[]>();
+export const getParsedRuleContexts = (rule: Rule): string[] => {
+  if (!rule.context_value) return [];
+  let t = parsedRuleContextCache.get(rule);
+  if (!t) {
+    t = rule.context_value
+      .split(',')
+      .map((str) => str.trim().toLowerCase())
+      .filter(Boolean);
+    parsedRuleContextCache.set(rule, t);
+  }
+  return t;
+};
+
 export type RuleIndex = {
   enrichmentByTarget: Map<string, Rule[]>;
   acceptanceByTarget: Map<string, Rule[]>;
@@ -157,16 +194,12 @@ export const getExpandedDesired = (
   const result = new Set(desiredVals.map(normalizeToken));
   const expandRules = getRuleIndex(rules).expansionByCategory.get(category) || [];
 
-  const parsedTargets = expandRules.map((rule) =>
-    rule.target_value.split(',').map((t) => t.trim().toLowerCase())
-  );
-
   for (const val of desiredVals) {
-    for (const [i, rule] of expandRules.entries()) {
+    for (const rule of expandRules) {
       if (!hasToken(val, rule.trigger_value)) continue;
       if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) continue;
 
-      const targets = parsedTargets[i];
+      const targets = getParsedRuleTargets(rule);
       for (const target of targets) {
         if (target) result.add(target);
       }
@@ -189,14 +222,8 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens = rule.trigger_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-    const targetTokens = rule.target_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+    const triggerTokens = getParsedRuleTriggers(rule);
+    const targetTokens = getParsedRuleTargets(rule).filter(Boolean);
 
     const hasTrigger = triggerTokens.some((token) =>
       expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
@@ -205,10 +232,7 @@ export const getExclusionConflicts = (
     let hasContext = true;
     if (rule.context_attribute && rule.context_value) {
       const ctxAttr = rule.context_attribute;
-      const contextTokens = rule.context_value
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
+      const contextTokens = getParsedRuleContexts(rule);
       hasContext = contextTokens.some((token) =>
         expandedAttrs[ctxAttr]?.some((attrVal: string) => hasToken(attrVal, token))
       );
@@ -280,7 +304,7 @@ export const buildAcceptedSet = (
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
-      const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+      const targets = getParsedRuleTargets(rule);
       targets.forEach((t) => accepted.add(t));
     }
   }
@@ -296,10 +320,10 @@ export const applyCrossRule = (
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
   if (hasToken(val, rule.trigger_value)) {
-    const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+    const targets = getParsedRuleTargets(rule);
     targets.forEach((t) => result.add(t));
   }
-  if (rule.target_value.split(',').some((t) => hasToken(val, t.trim().toLowerCase()))) {
+  if (getParsedRuleTargets(rule).some((t) => hasToken(val, t))) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };
@@ -352,7 +376,7 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        const targets = getParsedRuleTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
           seenTargets.add(t);
@@ -374,7 +398,7 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        const targets = getParsedRuleTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
           seenTargets.add(t);
