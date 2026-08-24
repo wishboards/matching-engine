@@ -29,6 +29,33 @@ export type RuleIndex = {
  */
 const ruleIndexCache = new WeakMap<Rule[], RuleIndex>();
 
+/**
+ * ⚡ OPTIMIZATION: Cache parsed rule target and trigger values to avoid repeated
+ * string splitting array allocations. Using a WeakMap attached to the Rule object
+ * prevents garbage collection overhead during heavily nested profile matching loops.
+ */
+const ruleTargetsCache = new WeakMap<Rule, string[]>();
+
+const getRuleTargets = (rule: Rule): string[] => {
+  let targets = ruleTargetsCache.get(rule);
+  if (!targets) {
+    targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+    ruleTargetsCache.set(rule, targets);
+  }
+  return targets;
+};
+
+const ruleTriggersCache = new WeakMap<Rule, string[]>();
+
+const getRuleTriggers = (rule: Rule): string[] => {
+  let triggers = ruleTriggersCache.get(rule);
+  if (!triggers) {
+    triggers = rule.trigger_value.split(',').map((t) => t.trim().toLowerCase());
+    ruleTriggersCache.set(rule, triggers);
+  }
+  return triggers;
+};
+
 export const getRuleIndex = (rules: Rule[]): RuleIndex => {
   let index = ruleIndexCache.get(rules);
   if (index) return index;
@@ -157,9 +184,7 @@ export const getExpandedDesired = (
   const result = new Set(desiredVals.map(normalizeToken));
   const expandRules = getRuleIndex(rules).expansionByCategory.get(category) || [];
 
-  const parsedTargets = expandRules.map((rule) =>
-    rule.target_value.split(',').map((t) => t.trim().toLowerCase())
-  );
+  const parsedTargets = expandRules.map(getRuleTargets);
 
   for (const val of desiredVals) {
     for (const [i, rule] of expandRules.entries()) {
@@ -189,14 +214,8 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens = rule.trigger_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
-    const targetTokens = rule.target_value
-      .split(',')
-      .map((t) => t.trim().toLowerCase())
-      .filter(Boolean);
+    const triggerTokens = getRuleTriggers(rule).filter(Boolean);
+    const targetTokens = getRuleTargets(rule).filter(Boolean);
 
     const hasTrigger = triggerTokens.some((token) =>
       expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
@@ -280,7 +299,7 @@ export const buildAcceptedSet = (
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
-      const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+      const targets = getRuleTargets(rule);
       targets.forEach((t) => accepted.add(t));
     }
   }
@@ -296,10 +315,10 @@ export const applyCrossRule = (
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
   if (hasToken(val, rule.trigger_value)) {
-    const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+    const targets = getRuleTargets(rule);
     targets.forEach((t) => result.add(t));
   }
-  if (rule.target_value.split(',').some((t) => hasToken(val, t.trim().toLowerCase()))) {
+  if (getRuleTargets(rule).some((t) => hasToken(val, t))) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };
@@ -336,13 +355,11 @@ export const matchesAttribute = (
   const crossRules = getRuleIndex(rules).crossMatchByCategory.get(category) || [];
 
   const crossMatchedDesired = new Set<string>();
-  const seenTargets = new Set<string>();
 
   // Layer 0: Original desired values
   for (const val of desiredVals) {
     const normalizedVal = normalizeToken(val);
     if (normalizedSearcher.has(normalizedVal)) return true;
-    seenTargets.add(normalizedVal);
   }
 
   // Evaluate inlined expansion rules
@@ -352,10 +369,9 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        const targets = getRuleTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
-          seenTargets.add(t);
         }
       }
     }
@@ -367,17 +383,15 @@ export const matchesAttribute = (
 
   for (const val of crossMatchedDesired) {
     if (normalizedSearcher.has(val)) return true;
-    seenTargets.add(val);
 
     for (const rule of expandRules) {
       if (hasToken(val, rule.trigger_value)) {
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
+        const targets = getRuleTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
-          seenTargets.add(t);
         }
       }
     }

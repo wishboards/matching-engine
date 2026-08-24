@@ -32,3 +32,8 @@
 
 **Learning:** In matching engines that take an array of `rules` as an argument and scan it repeatedly (especially inside loops per attribute category), O(N) filtering operations (`rules.filter(...)`) become a significant bottleneck as rule sets grow (e.g. 1000+ rules). Furthermore, cache keys for rule groupings should be minimal; e.g. when cross-match/expansion rules only apply where `trigger_attribute === target_attribute`, indexing simply by `category` avoids dead code and unnecessary Maps.
 **Action:** Always prefer computing an indexed grouping (e.g. via `WeakMap<Rule[], RuleIndex>`) of a rules array when it's passed iteratively. For performance, cache keys should closely reflect exactly what the engine queries rather than indexing all permutations upfront.
+
+## 2025-02-28 - Caching Parsed Rule Strings
+
+**Learning:** Repeatedly parsing delimited string values (e.g., `split(',').map(...)`) inside heavily nested matching loops causes massive garbage collection overhead and significantly slows down the engine for large rule sets.
+**Action:** When a static config object or rule is evaluated multiple times, attach a `WeakMap` cache to the object reference to memoize the string parsing output. This prevents redundant array allocations while avoiding memory leaks when rules are discarded.
