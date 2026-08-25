@@ -37,3 +37,8 @@
 
 **Learning:** Repeatedly parsing strings (using `.split(',').map(...)`) inside heavily nested iteration loops based on rules variables causes severe GC overhead due to duplicate string and array allocations on every iteration.
 **Action:** Always cache the parsed output of rule strings (like `trigger_value` and `target_value`) into WeakMap or a similar map attached to the `Rule` object so that each rule string is split and mapped only once per rule object lifetime instead of thousands of times during attribute comparison.
+
+## 2024-05-18 - Avoid unnecessary context expansion in matching loops
+
+**Learning:** In `@wishboards/matching-engine`, evaluating rule contexts (`contextMatch`) via `getExpandedDesired` is computationally expensive because it expands attributes dynamically.
+**Action:** Always use short-circuit evaluation (early returns) if the primary condition (e.g., `triggerMatch`) fails to bypass unnecessary context expansion and save significant computation time.
