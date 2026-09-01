@@ -412,9 +412,8 @@ export const matchesImplicitPreference = (
 ): boolean => {
   if (!desiredValues || desiredValues.length === 0) return true;
 
-  const acceptanceRules = rules.filter(
-    (r) => r.rule_type === 'acceptance' && r.target_attribute === targetCategory
-  );
+  // ⚡ OPTIMIZATION: Use pre-computed rule index instead of O(N) array filter
+  const acceptanceRules = getRuleIndex(rules).acceptanceByTarget.get(targetCategory) || [];
   if (acceptanceRules.length === 0) return true;
 
   const accepted = buildAcceptedSet(searcherAttributes, targetCategory, rules);
