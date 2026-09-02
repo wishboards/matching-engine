@@ -261,6 +261,9 @@ export const evaluateRuleConditions = (
   const triggerVals = userAttributes[rule.trigger_attribute] || [];
   const triggerMatch = triggerVals.some((v) => hasToken(v, rule.trigger_value));
 
+  // ⚡ OPTIMIZATION: Early return to avoid expensive context expansion if trigger fails
+  if (!triggerMatch) return false;
+
   let contextMatch = true;
   if (rule.context_attribute && rule.context_value) {
     const ctxVal = rule.context_value;
