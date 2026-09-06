@@ -37,3 +37,8 @@
 
 **Learning:** Repeatedly parsing strings (using `.split(',').map(...)`) inside heavily nested iteration loops based on rules variables causes severe GC overhead due to duplicate string and array allocations on every iteration.
 **Action:** Always cache the parsed output of rule strings (like `trigger_value` and `target_value`) into WeakMap or a similar map attached to the `Rule` object so that each rule string is split and mapped only once per rule object lifetime instead of thousands of times during attribute comparison.
+
+## 2024-05-18 - Avoid O(N) array filtering in rule loops
+
+**Learning:** In heavily nested operations like matching loops, O(N) `Array.prototype.filter()` calls can cause significant performance bottlenecks, even if the array is relatively small.
+**Action:** Consistently leverage the pre-computed O(1) indexed lookups provided by `getRuleIndex(rules)` (e.g., `acceptanceByTarget.get(targetCategory)`) instead of filtering the rules array directly to find rules by attribute or category.
