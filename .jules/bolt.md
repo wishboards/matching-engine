@@ -37,3 +37,8 @@
 
 **Learning:** Repeatedly parsing strings (using `.split(',').map(...)`) inside heavily nested iteration loops based on rules variables causes severe GC overhead due to duplicate string and array allocations on every iteration.
 **Action:** Always cache the parsed output of rule strings (like `trigger_value` and `target_value`) into WeakMap or a similar map attached to the `Rule` object so that each rule string is split and mapped only once per rule object lifetime instead of thousands of times during attribute comparison.
+
+## 2024-11-20 - Short-circuit Evaluation in evaluateRuleConditions
+
+**Learning:** When evaluating rule conditions (`evaluateRuleConditions`), calculating both `triggerMatch` and `contextMatch` before returning their logical AND (`return triggerMatch && contextMatch`) results in unnecessary and expensive function calls (`getExpandedDesired`) when the `triggerMatch` is already `false`.
+**Action:** Always implement short-circuit evaluation by returning early when a primary condition fails, especially if subsequent conditions rely on expensive function calls or iterations.

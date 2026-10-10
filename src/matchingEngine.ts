@@ -261,6 +261,12 @@ export const evaluateRuleConditions = (
   const triggerVals = userAttributes[rule.trigger_attribute] || [];
   const triggerMatch = triggerVals.some((v) => hasToken(v, rule.trigger_value));
 
+  // ⚡ OPTIMIZATION: Short-circuit evaluation
+  // If the trigger does not match, there's no need to evaluate the context.
+  // Evaluating rule contexts via `getExpandedDesired` is computationally expensive.
+  // Early return prevents this when it's already guaranteed to fail.
+  if (!triggerMatch) return false;
+
   let contextMatch = true;
   if (rule.context_attribute && rule.context_value) {
     const ctxVal = rule.context_value;
@@ -269,7 +275,7 @@ export const evaluateRuleConditions = (
     contextMatch = expandedCtxVals.some((v) => hasToken(v, ctxVal));
   }
 
-  return triggerMatch && contextMatch;
+  return contextMatch;
 };
 
 export const enrichAttributes = (
