@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.4](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.3...matching-engine-v1.1.4) (2026-10-09)
+
+
+### Performance Improvements
+
+* ⚡ Bolt: cache parsed triggers and targets to reduce GC overhead ([#56](https://github.com/wishboards/matching-engine/issues/56)) ([92d4927](https://github.com/wishboards/matching-engine/commit/92d4927210cd9e7f56c102789c08ecaacb8fc99f))
+
 ## [1.1.3](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.2...matching-engine-v1.1.3) (2026-08-18)
 
 
