@@ -17,6 +17,32 @@ export type RuleIndex = {
   exclusion: Rule[];
 };
 
+const parsedTargetsCache = new WeakMap<Rule, string[]>();
+const getParsedTargets = (rule: Rule): string[] => {
+  let parsed = parsedTargetsCache.get(rule);
+  if (!parsed) {
+    parsed = (rule.target_value || '')
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    parsedTargetsCache.set(rule, parsed);
+  }
+  return parsed;
+};
+
+const parsedTriggersCache = new WeakMap<Rule, string[]>();
+const getParsedTriggers = (rule: Rule): string[] => {
+  let parsed = parsedTriggersCache.get(rule);
+  if (!parsed) {
+    parsed = (rule.trigger_value || '')
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    parsedTriggersCache.set(rule, parsed);
+  }
+  return parsed;
+};
+
 /**
  * ⚡ OPTIMIZATION: Index dynamic rule evaluation.
  *
@@ -28,33 +54,6 @@ export type RuleIndex = {
  * This optimization takes the benchmark from ~871ms down to ~696ms.
  */
 const ruleIndexCache = new WeakMap<Rule[], RuleIndex>();
-
-/**
- * ⚡ OPTIMIZATION: Cache parsed rule target and trigger values to avoid repeated
- * string splitting array allocations. Using a WeakMap attached to the Rule object
- * prevents garbage collection overhead during heavily nested profile matching loops.
- */
-const ruleTargetsCache = new WeakMap<Rule, string[]>();
-
-const getRuleTargets = (rule: Rule): string[] => {
-  let targets = ruleTargetsCache.get(rule);
-  if (!targets) {
-    targets = rule.target_value.split(',').map((t) => t.trim().toLowerCase());
-    ruleTargetsCache.set(rule, targets);
-  }
-  return targets;
-};
-
-const ruleTriggersCache = new WeakMap<Rule, string[]>();
-
-const getRuleTriggers = (rule: Rule): string[] => {
-  let triggers = ruleTriggersCache.get(rule);
-  if (!triggers) {
-    triggers = rule.trigger_value.split(',').map((t) => t.trim().toLowerCase());
-    ruleTriggersCache.set(rule, triggers);
-  }
-  return triggers;
-};
 
 export const getRuleIndex = (rules: Rule[]): RuleIndex => {
   let index = ruleIndexCache.get(rules);
@@ -184,7 +183,7 @@ export const getExpandedDesired = (
   const result = new Set(desiredVals.map(normalizeToken));
   const expandRules = getRuleIndex(rules).expansionByCategory.get(category) || [];
 
-  const parsedTargets = expandRules.map(getRuleTargets);
+  const parsedTargets = expandRules.map(getParsedTargets);
 
   for (const val of desiredVals) {
     for (const [i, rule] of expandRules.entries()) {
@@ -214,8 +213,8 @@ export const getExclusionConflicts = (
   const exclusionRules = getRuleIndex(rules).exclusion;
 
   for (const rule of exclusionRules) {
-    const triggerTokens = getRuleTriggers(rule).filter(Boolean);
-    const targetTokens = getRuleTargets(rule).filter(Boolean);
+    const triggerTokens = getParsedTriggers(rule);
+    const targetTokens = getParsedTargets(rule);
 
     const hasTrigger = triggerTokens.some((token) =>
       expandedAttrs[rule.trigger_attribute]?.some((attrVal) => hasToken(attrVal, token))
@@ -262,6 +261,12 @@ export const evaluateRuleConditions = (
   const triggerVals = userAttributes[rule.trigger_attribute] || [];
   const triggerMatch = triggerVals.some((v) => hasToken(v, rule.trigger_value));
 
+  // ⚡ OPTIMIZATION: Short-circuit evaluation
+  // If the trigger does not match, there's no need to evaluate the context.
+  // Evaluating rule contexts via `getExpandedDesired` is computationally expensive.
+  // Early return prevents this when it's already guaranteed to fail.
+  if (!triggerMatch) return false;
+
   let contextMatch = true;
   if (rule.context_attribute && rule.context_value) {
     const ctxVal = rule.context_value;
@@ -270,7 +275,7 @@ export const evaluateRuleConditions = (
     contextMatch = expandedCtxVals.some((v) => hasToken(v, ctxVal));
   }
 
-  return triggerMatch && contextMatch;
+  return contextMatch;
 };
 
 export const enrichAttributes = (
@@ -299,7 +304,7 @@ export const buildAcceptedSet = (
 
   for (const rule of acceptanceRules) {
     if (evaluateRuleConditions(rule, userAttributes, rules)) {
-      const targets = getRuleTargets(rule);
+      const targets = getParsedTargets(rule);
       targets.forEach((t) => accepted.add(t));
     }
   }
@@ -315,10 +320,10 @@ export const applyCrossRule = (
 ): void => {
   if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) return;
   if (hasToken(val, rule.trigger_value)) {
-    const targets = getRuleTargets(rule);
+    const targets = getParsedTargets(rule);
     targets.forEach((t) => result.add(t));
   }
-  if (getRuleTargets(rule).some((t) => hasToken(val, t))) {
+  if (getParsedTargets(rule).some((t) => hasToken(val, t))) {
     result.add(rule.trigger_value.toLowerCase());
   }
 };
@@ -369,7 +374,7 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = getRuleTargets(rule);
+        const targets = getParsedTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
         }
@@ -389,7 +394,7 @@ export const matchesAttribute = (
         if (contextProfile !== undefined && !matchesContext(rule, contextProfile, rules)) {
           continue;
         }
-        const targets = getRuleTargets(rule);
+        const targets = getParsedTargets(rule);
         for (const t of targets) {
           if (normalizedSearcher.has(t)) return true;
         }
