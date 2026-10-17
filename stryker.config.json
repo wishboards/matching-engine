@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "npm test"
+  },
+  "reporters": ["progress", "clear-text", "html", "json", "dashboard"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/index.html"
+  },
+  "dashboard": {
+    "version": "main",
+    "reportType": "full"
+  },
+  "coverageAnalysis": "all",
+  "ignoreStatic": false,
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+  "mutate": ["src/**/*.ts"]
+}
