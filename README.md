@@ -2,6 +2,7 @@
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Node.js CI](https://github.com/wishboards/matching-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/wishboards/matching-engine/actions/workflows/ci.yml)
+[![Mutation Status](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fwishboards%2Fmatching-engine%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/wishboards/matching-engine/main)
 [![npm version](https://img.shields.io/npm/v/@wishboards/matching-engine.svg)](https://www.npmjs.com/package/@wishboards/matching-engine)
 
 A zero-dependency, identity-based dynamic matchmaking and rules evaluation engine.
