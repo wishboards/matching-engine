@@ -97,13 +97,14 @@ const MAX_CACHE_SIZE = 1000;
 const tokenRegExpCache = new Map<string, RegExp>();
 
 export const hasToken = (str: unknown, token: string): boolean => {
+  if (!token || !token.trim()) return false;
   let regex = tokenRegExpCache.get(token);
   if (!regex) {
     if (tokenRegExpCache.size >= MAX_CACHE_SIZE) {
       // Prevent unbounded memory growth by clearing cache when it gets too large
       tokenRegExpCache.clear();
     }
-    const escapedToken = escapeRegExp(token);
+    const escapedToken = escapeRegExp(token.trim());
     regex = new RegExp(String.raw`\b${escapedToken}\b`, 'i');
     tokenRegExpCache.set(token, regex);
   }
