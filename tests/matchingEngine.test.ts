@@ -17,6 +17,7 @@ import {
   matchesAttribute,
   matchesImplicitPreference,
   isCompatible,
+  getRuleIndex,
 } from '../src/index.js';
 import { Rule, Wish, UserProfile } from '../src/types.js';
 
@@ -39,6 +40,30 @@ describe('matchingEngine', () => {
     it('matches whole word tokens', () => {
       expect(hasToken('gay man', 'man')).toBe(true);
       expect(hasToken('human', 'man')).toBe(false);
+    });
+
+    it('is case-insensitive regardless of token or input casing', () => {
+      expect(hasToken('GAY MAN', 'man')).toBe(true);
+      expect(hasToken('gay man', 'MAN')).toBe(true);
+      expect(hasToken('GAY MAN', 'MAN')).toBe(true);
+    });
+
+    it('matches tokens separated by commas without spaces', () => {
+      expect(hasToken('man,woman', 'man')).toBe(true);
+      expect(hasToken('man,woman', 'woman')).toBe(true);
+    });
+
+    it('returns false for empty or non-string inputs', () => {
+      expect(hasToken('', 'man')).toBe(false);
+      expect(hasToken(null, 'man')).toBe(false);
+      expect(hasToken('man', '')).toBe(false);
+    });
+
+    it('evicts cache when exceeding MAX_CACHE_SIZE', () => {
+      for (let i = 0; i < 1005; i++) {
+        hasToken('token' + i, 'token' + i);
+      }
+      expect(hasToken('token1004', 'token1004')).toBe(true);
     });
   });
 
@@ -76,6 +101,11 @@ describe('matchingEngine', () => {
     it('filters out falsy values in arrays', () => {
       expect(normalizeArrayInput(['man', '', null, 'woman'])).toEqual(['man', 'woman']);
     });
+
+    it('handles numeric and boolean values safely', () => {
+      expect(normalizeArrayInput(123)).toEqual(['123']);
+      expect(normalizeArrayInput(true)).toEqual(['true']);
+    });
   });
 
   describe('parseJsonSafe', () => {
@@ -104,6 +134,15 @@ describe('matchingEngine', () => {
 
     it('returns empty object for empty input', () => {
       expect(parseAttributesInput(null)).toEqual({});
+      expect(parseAttributesInput(undefined)).toEqual({});
+      expect(parseAttributesInput('')).toEqual({});
+    });
+
+    it('returns empty object for non-object, non-string, or array inputs', () => {
+      expect(parseAttributesInput(123)).toEqual({});
+      expect(parseAttributesInput(true)).toEqual({});
+      expect(parseAttributesInput(['array'])).toEqual({});
+      expect(parseAttributesInput('invalid json {')).toEqual({});
     });
   });
 
@@ -259,6 +298,65 @@ describe('matchingEngine', () => {
       const conflicts = getExclusionConflicts(attributes, rules);
       expect(conflicts).toEqual([]);
     });
+
+    it('detects conflict with multi-token comma-separated trigger and target values', () => {
+      const multiTokenRules: Rule[] = [
+        {
+          id: 'ex_multi',
+          rule_type: 'exclusion',
+          trigger_attribute: 'role',
+          trigger_value: 'dom,master',
+          target_attribute: 'role',
+          target_value: 'sub,slave',
+        },
+      ];
+      // Only 'dom' and 'sub' are present; 'master' and 'slave' are absent
+      const conflicts = getExclusionConflicts({ role: ['dom', 'sub'] }, multiTokenRules);
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0].message).toBe('"dom,master" and "sub,slave" are mutually exclusive.');
+      expect(conflicts[0].context_attribute).toBeNull();
+      expect(conflicts[0].context_value).toBeNull();
+    });
+
+    it('handles context condition with multi-token comma-separated values', () => {
+      const multiCtxRule: Rule[] = [
+        {
+          id: 'ex_ctx_multi',
+          rule_type: 'exclusion',
+          trigger_attribute: 'toy',
+          trigger_value: 'rope',
+          target_attribute: 'toy',
+          target_value: 'knife',
+          context_attribute: 'play_style',
+          context_value: 'soft,gentle',
+        },
+      ];
+      // Play style only has 'gentle' (one of the context tokens)
+      const conflicts = getExclusionConflicts(
+        { toy: ['rope', 'knife'], play_style: ['gentle'] },
+        multiCtxRule
+      );
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0].context_attribute).toBe('play_style');
+      expect(conflicts[0].context_value).toBe('soft,gentle');
+    });
+
+    it('ignores context check when rule has context_attribute without context_value', () => {
+      const partialCtxRule: Rule[] = [
+        {
+          id: 'ex_partial_ctx',
+          rule_type: 'exclusion',
+          trigger_attribute: 'role',
+          trigger_value: 'top',
+          target_attribute: 'role',
+          target_value: 'bottom',
+          context_attribute: 'mood',
+          context_value: '',
+        },
+      ];
+      const conflicts = getExclusionConflicts({ role: ['top', 'bottom'] }, partialCtxRule);
+      expect(conflicts).toHaveLength(1);
+    });
   });
 
   describe('enrichAttributes & buildAcceptedSet', () => {
@@ -354,15 +452,191 @@ describe('matchingEngine', () => {
       applyCrossRule('bottom', rule, undefined, [], result2);
       expect(Array.from(result2)).toContain('top');
     });
+
+    it('respects context conditions on cross_match rules in applyCrossRule', () => {
+      const rule: Rule = {
+        rule_type: 'cross_match',
+        trigger_attribute: 'role',
+        target_attribute: 'role',
+        trigger_value: 'top',
+        target_value: 'bottom',
+        context_attribute: 'mood',
+        context_value: 'playful',
+      };
+      const result1 = new Set<string>();
+      applyCrossRule('top', rule, { mood: ['playful'] }, [], result1);
+      expect(Array.from(result1)).toContain('bottom');
+
+      const result2 = new Set<string>();
+      applyCrossRule('top', rule, { mood: ['serious'] }, [], result2);
+      expect(Array.from(result2)).toHaveLength(0);
+    });
+  });
+
+  describe('getRuleIndex', () => {
+    it('indexes rules by category and type', () => {
+      const rules: Rule[] = [
+        {
+          id: 'exp1',
+          rule_type: 'expansion',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'dom',
+          target_value: 'top',
+        },
+        {
+          id: 'cross1',
+          rule_type: 'cross_match',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'top',
+          target_value: 'bottom',
+        },
+        {
+          id: 'acc1',
+          rule_type: 'acceptance',
+          trigger_attribute: 'orientation',
+          target_attribute: 'gender',
+          trigger_value: 'pan',
+          target_value: 'all',
+        },
+        {
+          id: 'ex1',
+          rule_type: 'exclusion',
+          trigger_attribute: 'diet',
+          target_attribute: 'diet',
+          trigger_value: 'vegan',
+          target_value: 'carnivore',
+        },
+        {
+          id: 'en1',
+          rule_type: 'enrichment',
+          trigger_attribute: 'orientation',
+          target_attribute: 'gender',
+          trigger_value: 'lesbian',
+          target_value: 'woman',
+        },
+      ];
+
+      const index = getRuleIndex(rules);
+      expect(index.expansionByCategory.get('role')).toHaveLength(1);
+      expect(index.acceptanceByTarget.get('gender')).toHaveLength(1);
+      expect(index.enrichmentByTarget.get('gender')).toHaveLength(1);
+      expect(index.exclusion).toHaveLength(1);
+      expect(index.crossMatchByCategory.get('role')).toHaveLength(1);
+
+      // Cached index lookup on same array
+      expect(getRuleIndex(rules)).toBe(index);
+    });
   });
 
   describe('matchesAttribute', () => {
     it('returns true when desired attributes are empty', () => {
       expect(matchesAttribute(['man'], [], 'gender')).toBe(true);
+      expect(matchesAttribute(['man'], null as unknown as string[], 'gender')).toBe(true);
+      expect(matchesAttribute(['man'], undefined as unknown as string[], 'gender')).toBe(true);
     });
 
     it('returns false when searcher attributes are empty and desired attributes exist', () => {
       expect(matchesAttribute([], ['man'], 'gender')).toBe(false);
+      expect(matchesAttribute(null as unknown as string[], ['man'], 'gender')).toBe(false);
+      expect(matchesAttribute(undefined as unknown as string[], ['man'], 'gender')).toBe(false);
+    });
+
+    it('matches exact attribute values directly', () => {
+      expect(matchesAttribute(['man'], ['man'], 'gender')).toBe(true);
+      expect(matchesAttribute(['woman'], ['man'], 'gender')).toBe(false);
+    });
+
+    it('matches expanded attributes via expansion rules on desired values', () => {
+      const rules: Rule[] = [
+        {
+          id: 'exp1',
+          rule_type: 'expansion',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'dom',
+          target_value: 'top,master',
+        },
+      ];
+      expect(matchesAttribute(['top'], ['dom'], 'role', rules)).toBe(true);
+      expect(matchesAttribute(['bottom'], ['dom'], 'role', rules)).toBe(false);
+    });
+
+    it('respects context on expansion rules in matchesAttribute', () => {
+      const rules: Rule[] = [
+        {
+          id: 'exp_ctx',
+          rule_type: 'expansion',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'lead',
+          target_value: 'top',
+          context_attribute: 'scene',
+          context_value: 'dance',
+        },
+      ];
+      // Context satisfied
+      expect(matchesAttribute(['top'], ['lead'], 'role', rules, { scene: ['dance'] })).toBe(true);
+      // Context not satisfied
+      expect(matchesAttribute(['top'], ['lead'], 'role', rules, { scene: ['combat'] })).toBe(false);
+    });
+
+    it('matches attributes via cross_match rules and chains cross_match with expansion', () => {
+      const rules: Rule[] = [
+        {
+          id: 'cross1',
+          rule_type: 'cross_match',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'top',
+          target_value: 'bottom',
+        },
+        {
+          id: 'exp_chain',
+          rule_type: 'expansion',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'bottom',
+          target_value: 'sub,slave',
+        },
+      ];
+      // Direct cross-match: desired 'top' -> cross-matches 'bottom'
+      expect(matchesAttribute(['bottom'], ['top'], 'role', rules)).toBe(true);
+      // Chained expansion of cross-match: desired 'top' -> 'bottom' -> 'sub'
+      expect(matchesAttribute(['sub'], ['top'], 'role', rules)).toBe(true);
+      expect(matchesAttribute(['switch'], ['top'], 'role', rules)).toBe(false);
+    });
+
+    it('respects context on chained expansion of cross-match', () => {
+      const rules: Rule[] = [
+        {
+          id: 'cross_ctx',
+          rule_type: 'cross_match',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'top',
+          target_value: 'bottom',
+        },
+        {
+          id: 'exp_ctx_chain',
+          rule_type: 'expansion',
+          trigger_attribute: 'role',
+          target_attribute: 'role',
+          trigger_value: 'bottom',
+          target_value: 'sub',
+          context_attribute: 'experience',
+          context_value: 'advanced',
+        },
+      ];
+      // With matching context
+      expect(matchesAttribute(['sub'], ['top'], 'role', rules, { experience: ['advanced'] })).toBe(
+        true
+      );
+      // With non-matching context
+      expect(matchesAttribute(['sub'], ['top'], 'role', rules, { experience: ['novice'] })).toBe(
+        false
+      );
     });
   });
 
@@ -475,6 +749,89 @@ describe('matchingEngine', () => {
       };
 
       expect(isCompatible(wish, searcher, customRules)).toBe(true);
+    });
+
+    it('evaluates compatibility when wish or searcher attributes are serialized JSON strings', () => {
+      const wish: Wish = {
+        creator_attributes: JSON.stringify({
+          gender: ['man'],
+          orientation: ['gay'],
+          role: ['top'],
+        }),
+        desired_attributes: JSON.stringify({ gender: ['man'], role: ['bottom'] }),
+      };
+      const searcher: UserProfile = {
+        identity_attributes: JSON.stringify({
+          gender: ['man'],
+          orientation: ['gay'],
+          role: ['bottom'],
+        }),
+      };
+
+      expect(isCompatible(wish, searcher, rules)).toBe(true);
+    });
+
+    it('uses default rules argument when omitted', () => {
+      const wish: Wish = {
+        creator_attributes: { gender: ['man'] },
+        desired_attributes: { gender: ['man'] },
+      };
+      const searcher: UserProfile = {
+        identity_attributes: { gender: ['man'] },
+      };
+      expect(isCompatible(wish, searcher)).toBe(true);
+    });
+
+    it('returns false when creator has implicit acceptance preference rejecting searcher', () => {
+      const orientationRules: Rule[] = [
+        {
+          id: 'ac_lesbian',
+          rule_type: 'acceptance',
+          trigger_attribute: 'orientation',
+          trigger_value: 'lesbian',
+          target_attribute: 'gender',
+          target_value: 'woman',
+        },
+      ];
+      // Creator is lesbian with no explicit desired gender specified
+      const wish: Wish = {
+        creator_attributes: { orientation: ['lesbian'] },
+        desired_attributes: {},
+      };
+      // Searcher is a man
+      const searcher: UserProfile = {
+        identity_attributes: { gender: ['man'] },
+      };
+      expect(isCompatible(wish, searcher, orientationRules)).toBe(false);
+    });
+
+    it('returns false when searcher has implicit preference rejecting creator', () => {
+      const orientationRules: Rule[] = [
+        {
+          id: 'ac_lesbian',
+          rule_type: 'acceptance',
+          trigger_attribute: 'orientation',
+          trigger_value: 'lesbian',
+          target_attribute: 'gender',
+          target_value: 'woman',
+        },
+      ];
+      // Searcher is lesbian who only accepts women
+      const searcher: UserProfile = {
+        identity_attributes: { orientation: ['lesbian'] },
+      };
+      // Creator is a man
+      const wish: Wish = {
+        creator_attributes: { gender: ['man'] },
+        desired_attributes: {},
+      };
+      expect(isCompatible(wish, searcher, orientationRules)).toBe(false);
+    });
+
+    it('handles null or undefined wish and searcher attributes safely', () => {
+      const wish: Wish = { creator_attributes: undefined, desired_attributes: undefined };
+      const searcher: UserProfile = { identity_attributes: undefined };
+      expect(isCompatible(wish, searcher)).toBe(true);
     });
   });
 });
