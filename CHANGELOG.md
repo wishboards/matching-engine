@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.5](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.4...matching-engine-v1.1.5) (2026-10-18)
+
+
+### Bug Fixes
+
+* guard empty tokens in hasToken and expand mutation test coverage ([#91](https://github.com/wishboards/matching-engine/issues/91)) ([727478d](https://github.com/wishboards/matching-engine/commit/727478debe0e65b77129988b2b478ff167f4f722))
+
 ## [1.1.4](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.3...matching-engine-v1.1.4) (2026-10-09)
 
 
