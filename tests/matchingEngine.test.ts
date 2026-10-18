@@ -21,6 +21,24 @@ import {
 } from '../src/index.js';
 import { Rule, Wish, UserProfile } from '../src/types.js';
 
+const createRule = (
+  id: string,
+  rule_type: Rule['rule_type'],
+  trigger_attribute: string,
+  target_attribute: string,
+  trigger_value: string,
+  target_value: string,
+  extra: Partial<Rule> = {}
+): Rule => ({
+  id,
+  rule_type,
+  trigger_attribute,
+  target_attribute,
+  trigger_value,
+  target_value,
+  ...extra,
+});
+
 describe('matchingEngine', () => {
   describe('normalizeToken', () => {
     it('trims and lowercases string values', () => {
@@ -476,46 +494,11 @@ describe('matchingEngine', () => {
   describe('getRuleIndex', () => {
     it('indexes rules by category and type', () => {
       const rules: Rule[] = [
-        {
-          id: 'exp1',
-          rule_type: 'expansion',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'dom',
-          target_value: 'top',
-        },
-        {
-          id: 'cross1',
-          rule_type: 'cross_match',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'top',
-          target_value: 'bottom',
-        },
-        {
-          id: 'acc1',
-          rule_type: 'acceptance',
-          trigger_attribute: 'orientation',
-          target_attribute: 'gender',
-          trigger_value: 'pan',
-          target_value: 'all',
-        },
-        {
-          id: 'ex1',
-          rule_type: 'exclusion',
-          trigger_attribute: 'diet',
-          target_attribute: 'diet',
-          trigger_value: 'vegan',
-          target_value: 'carnivore',
-        },
-        {
-          id: 'en1',
-          rule_type: 'enrichment',
-          trigger_attribute: 'orientation',
-          target_attribute: 'gender',
-          trigger_value: 'lesbian',
-          target_value: 'woman',
-        },
+        createRule('exp1', 'expansion', 'role', 'role', 'dom', 'top'),
+        createRule('cross1', 'cross_match', 'role', 'role', 'top', 'bottom'),
+        createRule('acc1', 'acceptance', 'orientation', 'gender', 'pan', 'all'),
+        createRule('ex1', 'exclusion', 'diet', 'diet', 'vegan', 'carnivore'),
+        createRule('en1', 'enrichment', 'orientation', 'gender', 'lesbian', 'woman'),
       ];
 
       const index = getRuleIndex(rules);
@@ -549,32 +532,17 @@ describe('matchingEngine', () => {
     });
 
     it('matches expanded attributes via expansion rules on desired values', () => {
-      const rules: Rule[] = [
-        {
-          id: 'exp1',
-          rule_type: 'expansion',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'dom',
-          target_value: 'top,master',
-        },
-      ];
+      const rules: Rule[] = [createRule('exp1', 'expansion', 'role', 'role', 'dom', 'top,master')];
       expect(matchesAttribute(['top'], ['dom'], 'role', rules)).toBe(true);
       expect(matchesAttribute(['bottom'], ['dom'], 'role', rules)).toBe(false);
     });
 
     it('respects context on expansion rules in matchesAttribute', () => {
       const rules: Rule[] = [
-        {
-          id: 'exp_ctx',
-          rule_type: 'expansion',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'lead',
-          target_value: 'top',
+        createRule('exp_ctx', 'expansion', 'role', 'role', 'lead', 'top', {
           context_attribute: 'scene',
           context_value: 'dance',
-        },
+        }),
       ];
       // Context satisfied
       expect(matchesAttribute(['top'], ['lead'], 'role', rules, { scene: ['dance'] })).toBe(true);
@@ -584,22 +552,8 @@ describe('matchingEngine', () => {
 
     it('matches attributes via cross_match rules and chains cross_match with expansion', () => {
       const rules: Rule[] = [
-        {
-          id: 'cross1',
-          rule_type: 'cross_match',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'top',
-          target_value: 'bottom',
-        },
-        {
-          id: 'exp_chain',
-          rule_type: 'expansion',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'bottom',
-          target_value: 'sub,slave',
-        },
+        createRule('cross1', 'cross_match', 'role', 'role', 'top', 'bottom'),
+        createRule('exp_chain', 'expansion', 'role', 'role', 'bottom', 'sub,slave'),
       ];
       // Direct cross-match: desired 'top' -> cross-matches 'bottom'
       expect(matchesAttribute(['bottom'], ['top'], 'role', rules)).toBe(true);
@@ -610,24 +564,11 @@ describe('matchingEngine', () => {
 
     it('respects context on chained expansion of cross-match', () => {
       const rules: Rule[] = [
-        {
-          id: 'cross_ctx',
-          rule_type: 'cross_match',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'top',
-          target_value: 'bottom',
-        },
-        {
-          id: 'exp_ctx_chain',
-          rule_type: 'expansion',
-          trigger_attribute: 'role',
-          target_attribute: 'role',
-          trigger_value: 'bottom',
-          target_value: 'sub',
+        createRule('cross_ctx', 'cross_match', 'role', 'role', 'top', 'bottom'),
+        createRule('exp_ctx_chain', 'expansion', 'role', 'role', 'bottom', 'sub', {
           context_attribute: 'experience',
           context_value: 'advanced',
-        },
+        }),
       ];
       // With matching context
       expect(matchesAttribute(['sub'], ['top'], 'role', rules, { experience: ['advanced'] })).toBe(
@@ -651,14 +592,7 @@ describe('matchingEngine', () => {
 
     it('returns false when acceptance rules exist but searcher does not match acceptance trigger', () => {
       const rules: Rule[] = [
-        {
-          id: 'ac_diet',
-          rule_type: 'acceptance',
-          trigger_attribute: 'diet',
-          trigger_value: 'herbivore',
-          target_attribute: 'species',
-          target_value: 'rabbit,deer',
-        },
+        createRule('ac_diet', 'acceptance', 'diet', 'species', 'herbivore', 'rabbit,deer'),
       ];
       expect(matchesImplicitPreference({ diet: ['carnivore'] }, ['rabbit'], 'species', rules)).toBe(
         false
@@ -782,17 +716,11 @@ describe('matchingEngine', () => {
       expect(isCompatible(wish, searcher)).toBe(true);
     });
 
+    const lesbianRejectionRules: Rule[] = [
+      createRule('ac_lesbian', 'acceptance', 'orientation', 'gender', 'lesbian', 'woman'),
+    ];
+
     it('returns false when creator has implicit acceptance preference rejecting searcher', () => {
-      const orientationRules: Rule[] = [
-        {
-          id: 'ac_lesbian',
-          rule_type: 'acceptance',
-          trigger_attribute: 'orientation',
-          trigger_value: 'lesbian',
-          target_attribute: 'gender',
-          target_value: 'woman',
-        },
-      ];
       // Creator is lesbian with no explicit desired gender specified
       const wish: Wish = {
         creator_attributes: { orientation: ['lesbian'] },
@@ -802,20 +730,10 @@ describe('matchingEngine', () => {
       const searcher: UserProfile = {
         identity_attributes: { gender: ['man'] },
       };
-      expect(isCompatible(wish, searcher, orientationRules)).toBe(false);
+      expect(isCompatible(wish, searcher, lesbianRejectionRules)).toBe(false);
     });
 
     it('returns false when searcher has implicit preference rejecting creator', () => {
-      const orientationRules: Rule[] = [
-        {
-          id: 'ac_lesbian',
-          rule_type: 'acceptance',
-          trigger_attribute: 'orientation',
-          trigger_value: 'lesbian',
-          target_attribute: 'gender',
-          target_value: 'woman',
-        },
-      ];
       // Searcher is lesbian who only accepts women
       const searcher: UserProfile = {
         identity_attributes: { orientation: ['lesbian'] },
@@ -825,7 +743,7 @@ describe('matchingEngine', () => {
         creator_attributes: { gender: ['man'] },
         desired_attributes: {},
       };
-      expect(isCompatible(wish, searcher, orientationRules)).toBe(false);
+      expect(isCompatible(wish, searcher, lesbianRejectionRules)).toBe(false);
     });
 
     it('handles null or undefined wish and searcher attributes safely', () => {
