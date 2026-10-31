@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.5...matching-engine-v1.2.0) (2026-10-31)
+
+
+### Features
+
+* **deps:** package dependency updates for deployment ([66d12cd](https://github.com/wishboards/matching-engine/commit/66d12cd2ed248dfc89f797ce5afdaa6abe0ea36f))
+
 ## [1.1.5](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.4...matching-engine-v1.1.5) (2026-10-18)
 
 
