@@ -66,6 +66,9 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "overrides": {
+    "qs": "^6.17.1"
+  },
   "files": [
     "dist",
     "LICENSE",
