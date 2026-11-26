@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.2.0...matching-engine-v1.3.0) (2026-11-26)
+
+
+### Features
+
+* add deterministic validateRuleset linter for rule conflicts and cycles ([#106](https://github.com/wishboards/matching-engine/issues/106)) ([c82efd2](https://github.com/wishboards/matching-engine/commit/c82efd2395316d8cacd5f4fdc9bf1616df9db817))
+
 ## [1.2.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.1.5...matching-engine-v1.2.0) (2026-10-31)
 
 
