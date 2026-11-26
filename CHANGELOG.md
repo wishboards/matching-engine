@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.3.0...matching-engine-v1.3.1) (2026-11-26)
+
+
+### Build System
+
+* **deps-dev:** bump the minor-and-patch group across 1 directory with 5 updates ([#104](https://github.com/wishboards/matching-engine/issues/104)) ([5388568](https://github.com/wishboards/matching-engine/commit/53885680268c784b501325a1f7f9ef56a27db552))
+
 ## [1.3.0](https://github.com/wishboards/matching-engine/compare/matching-engine-v1.2.0...matching-engine-v1.3.0) (2026-11-26)
 
 
